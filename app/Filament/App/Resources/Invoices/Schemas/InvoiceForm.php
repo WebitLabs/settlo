@@ -13,6 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rule;
 
 class InvoiceForm
@@ -123,6 +124,26 @@ class InvoiceForm
                         Placeholder::make('total_display')
                             ->label('Total')
                             ->content(fn (Get $get): string => self::money(self::totals($get)['total'])),
+                        Placeholder::make('vat_breakdown_display')
+                            ->label('VAT breakdown')
+                            ->columnSpanFull()
+                            ->content(function (Get $get): HtmlString {
+                                $rows = self::vatRows($get);
+
+                                if ($rows === []) {
+                                    return new HtmlString('<span class="text-sm text-gray-500 dark:text-gray-400">Add a line item to see the VAT breakdown.</span>');
+                                }
+
+                                $html = '';
+                                foreach ($rows as $row) {
+                                    $html .= '<div class="flex items-center justify-between text-sm">'
+                                        .'<span class="text-gray-600 dark:text-gray-400">'.e($row['rate']).'% on '.e(self::money($row['base'])).'</span>'
+                                        .'<span class="font-medium">'.e(self::money($row['vat'])).'</span>'
+                                        .'</div>';
+                                }
+
+                                return new HtmlString($html);
+                            }),
                     ]),
 
                 Section::make('Notes')
@@ -158,6 +179,36 @@ class InvoiceForm
             'vat' => round($vat, 2),
             'total' => round($subtotal + $vat, 2),
         ];
+    }
+
+    /**
+     * Group the live line-item state by VAT rate for the form-side breakdown.
+     * Mirrors {@see InvoiceService::vatBreakdown()} but works on the unsaved
+     * float state; the persisted BCMath figures remain authoritative.
+     *
+     * @return list<array{rate: string, base: float, vat: float}>
+     */
+    private static function vatRows(Get $get): array
+    {
+        $groups = [];
+
+        foreach ((array) $get('lineItems') as $line) {
+            $rate = (float) ($line['vat_rate'] ?? 0);
+            $net = (float) ($line['quantity'] ?? 0) * (float) ($line['unit_price'] ?? 0);
+            $key = rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.');
+            $key = $key === '' ? '0' : $key;
+
+            if (! isset($groups[$key])) {
+                $groups[$key] = ['rate' => $key, 'base' => 0.0, 'vat' => 0.0];
+            }
+
+            $groups[$key]['base'] += $net;
+            $groups[$key]['vat'] += $net * $rate / 100;
+        }
+
+        krsort($groups, SORT_NUMERIC);
+
+        return array_values($groups);
     }
 
     private static function money(float $value): string

@@ -8,6 +8,7 @@ use App\Models\ExpenseCategory;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -99,10 +100,17 @@ class ExpenseForm
                                     $set('deductible_pct', (float) $category->default_deductible_pct);
                                 }
                             }),
-                        Select::make('deductibility')
+                        Radio::make('deductibility')
                             ->options(DeductibilityStatus::class)
+                            ->descriptions([
+                                DeductibilityStatus::FullyDeductible->value => 'Business cost claimable in full against your income.',
+                                DeductibilityStatus::PartiallyDeductible->value => 'Half deductible — e.g. meals (Verpflegung) and entertainment.',
+                                DeductibilityStatus::NotDeductible->value => 'Private cost — not claimable.',
+                                DeductibilityStatus::Uncertain->value => 'Not sure yet — Settlo will flag it for review.',
+                            ])
                             ->default(DeductibilityStatus::Uncertain->value)
                             ->live()
+                            ->columnSpanFull()
                             ->afterStateUpdated(function ($state, Set $set): void {
                                 $percent = DeductibilityStatus::tryFrom((string) $state)?->defaultPercent();
                                 if ($percent !== null) {

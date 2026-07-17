@@ -20,7 +20,7 @@ class TaxOverview extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Bookkeeping';
+    protected static string|UnitEnum|null $navigationGroup = 'Insights';
 
     protected static ?string $navigationLabel = 'Tax estimate';
 

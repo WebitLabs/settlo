@@ -34,6 +34,19 @@ it('computes subtotal, VAT and total with BCMath from line items', function () {
         ->and((float) $invoice->lineItems()->first()->line_total)->toBe(200.00);
 });
 
+it('groups line items by VAT rate with BCMath sums, highest rate first', function () {
+    $invoice = Invoice::factory()->draft()->create();
+    InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 2, 'unit_price' => 100, 'vat_rate' => 8.1]);
+    InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 50, 'vat_rate' => 8.1]);
+    InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 50, 'vat_rate' => 2.6]);
+
+    $breakdown = app(InvoiceService::class)->vatBreakdown($invoice);
+
+    expect(array_keys($breakdown))->toBe(['8.1', '2.6'])
+        ->and($breakdown['8.1'])->toBe(['rate' => '8.1', 'base' => '250.00', 'vat' => '20.25'])
+        ->and($breakdown['2.6'])->toBe(['rate' => '2.6', 'base' => '50.00', 'vat' => '1.30']);
+});
+
 it('assigns sequential per-entity invoice numbers under contention', function () {
     $entity = BusinessEntity::factory()->create();
     $service = app(InvoiceService::class);
@@ -96,6 +109,40 @@ it('flips only past-due sent invoices to overdue', function () {
     $count = app(InvoiceService::class)->markOverdue();
 
     expect($count)->toBe(1);
+});
+
+it('localizes the static PDF labels to the invoice language', function () {
+    $entity = BusinessEntity::factory()->create(['iban' => QR_IBAN]);
+    $invoice = Invoice::factory()->draft()->for($entity, 'businessEntity')->create([
+        'invoice_number' => 'INV-2026-0010',
+        'language' => 'de',
+    ]);
+    InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 100, 'vat_rate' => 8.1]);
+
+    $render = function (Invoice $invoice): string {
+        $previous = app()->getLocale();
+        app()->setLocale($invoice->language);
+
+        try {
+            return view('invoices.pdf', [
+                'invoice' => $invoice->loadMissing('lineItems'),
+                'entity' => $invoice->businessEntity,
+                'client' => $invoice->client,
+                'vatBreakdown' => app(InvoiceService::class)->vatBreakdown($invoice),
+                'paymentPart' => null,
+            ])->render();
+        } finally {
+            app()->setLocale($previous);
+        }
+    };
+
+    expect($render($invoice))->toContain('Rechnung');
+
+    $invoice->forceFill(['language' => 'fr'])->save();
+    expect($render($invoice->fresh()))->toContain('Facture');
+
+    // The surrounding request locale is always restored.
+    expect(app()->getLocale())->toBe('en');
 });
 
 it('renders a valid PDF document for a sent invoice', function () {

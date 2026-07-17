@@ -18,7 +18,7 @@ class AskSettloPreview extends Widget
 {
     protected string $view = 'filament.app.widgets.ask-settlo-preview';
 
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 6;
 
     protected int|string|array $columnSpan = 'full';
 

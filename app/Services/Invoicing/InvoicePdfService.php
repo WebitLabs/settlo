@@ -5,6 +5,7 @@ namespace App\Services\Invoicing;
 use App\Models\Invoice;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPDF;
+use Illuminate\Support\Facades\App;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -16,25 +17,43 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class InvoicePdfService
 {
-    public function __construct(private readonly QrBillService $qrBill) {}
+    public function __construct(
+        private readonly QrBillService $qrBill,
+        private readonly InvoiceService $invoices,
+    ) {}
 
+    /**
+     * Static labels are localised to the invoice's own language (falling back to
+     * English). The locale is switched only around view rendering — which the
+     * dompdf loadView call performs synchronously — and always restored, so the
+     * translation never leaks into the surrounding request.
+     */
     public function render(Invoice $invoice): DomPDF
     {
         $invoice->loadMissing(['businessEntity', 'client', 'lineItems']);
 
-        return Pdf::setOptions([
-            'isRemoteEnabled' => false,
-            'isPhpEnabled' => false,
-            'isHtml5ParserEnabled' => true,
-            'defaultFont' => 'DejaVu Sans',
-        ])
-            ->loadView('invoices.pdf', [
-                'invoice' => $invoice,
-                'entity' => $invoice->businessEntity,
-                'client' => $invoice->client,
-                'paymentPart' => $this->qrBill->paymentPartHtml($invoice, $invoice->language ?: 'en'),
+        $locale = $invoice->language ?: 'en';
+        $previousLocale = App::getLocale();
+        App::setLocale($locale);
+
+        try {
+            return Pdf::setOptions([
+                'isRemoteEnabled' => false,
+                'isPhpEnabled' => false,
+                'isHtml5ParserEnabled' => true,
+                'defaultFont' => 'DejaVu Sans',
             ])
-            ->setPaper('a4');
+                ->loadView('invoices.pdf', [
+                    'invoice' => $invoice,
+                    'entity' => $invoice->businessEntity,
+                    'client' => $invoice->client,
+                    'vatBreakdown' => $this->invoices->vatBreakdown($invoice),
+                    'paymentPart' => $this->qrBill->paymentPartHtml($invoice, $locale),
+                ])
+                ->setPaper('a4');
+        } finally {
+            App::setLocale($previousLocale);
+        }
     }
 
     public function filename(Invoice $invoice): string

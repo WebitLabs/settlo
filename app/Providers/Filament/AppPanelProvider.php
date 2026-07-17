@@ -2,6 +2,9 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\App\Auth\Register;
+use App\Filament\App\Pages\Dashboard;
+use App\Filament\App\Tenancy\RegisterBusinessEntity;
 use App\Models\BusinessEntity;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
@@ -9,7 +12,6 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationItem;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -30,8 +32,10 @@ class AppPanelProvider extends PanelProvider
             ->path('app')
             ->brandName('Settlo')
             ->login()
+            ->registration(Register::class)
             ->passwordReset()
             ->tenant(BusinessEntity::class)
+            ->tenantRegistration(RegisterBusinessEntity::class)
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([
@@ -46,6 +50,13 @@ class AppPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\Filament\App\Widgets')
             ->widgets([])
+            ->navigationGroups([
+                'Overview',
+                'Finance',
+                'Insights',
+                'Support',
+                'Settings',
+            ])
             ->navigationItems([
                 NavigationItem::make('Ask Settlo')
                     ->group('Support')

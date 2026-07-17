@@ -77,6 +77,36 @@ class InvoiceService
     }
 
     /**
+     * Group the invoice's line items by VAT rate, summing the net base and VAT
+     * amount per group with BCMath (rounded to CHF 0.01). Keyed by the rate
+     * string (e.g. "8.1"); rates are returned highest-first. Read-only — it
+     * never mutates the invoice totals.
+     *
+     * @return array<string, array{rate: string, base: string, vat: string}>
+     */
+    public function vatBreakdown(Invoice $invoice): array
+    {
+        $groups = [];
+
+        foreach ($invoice->lineItems()->get() as $line) {
+            $rate = $this->normalizeRate((string) $line->vat_rate);
+            $net = $this->round(bcmul((string) $line->quantity, (string) $line->unit_price, 6));
+            $vat = $this->round(bcdiv(bcmul($net, (string) $line->vat_rate, 6), '100', 6));
+
+            if (! isset($groups[$rate])) {
+                $groups[$rate] = ['rate' => $rate, 'base' => '0.00', 'vat' => '0.00'];
+            }
+
+            $groups[$rate]['base'] = bcadd($groups[$rate]['base'], $net, 2);
+            $groups[$rate]['vat'] = bcadd($groups[$rate]['vat'], $vat, 2);
+        }
+
+        krsort($groups, SORT_NUMERIC);
+
+        return $groups;
+    }
+
+    /**
      * Issue a draft invoice: freeze the creditor snapshot, mint the QR reference,
      * and transition to Sent. Recomputes totals first so the sent amount is
      * authoritative. Triggers a tax recalculation (revenue changed).
@@ -189,6 +219,17 @@ class InvoiceService
                 'status' => InvoiceStatus::Overdue->value,
                 'status_changed_at' => Carbon::now(),
             ]);
+    }
+
+    /**
+     * Normalise a VAT rate to a compact display string for grouping keys
+     * (e.g. "8.10" → "8.1", "0.00" → "0").
+     */
+    private function normalizeRate(string $rate): string
+    {
+        $trimmed = rtrim(rtrim(number_format((float) $rate, 2, '.', ''), '0'), '.');
+
+        return $trimmed === '' ? '0' : $trimmed;
     }
 
     /**

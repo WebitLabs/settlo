@@ -4,8 +4,12 @@ namespace App\Services\Tax;
 
 use App\Enums\MaritalStatus;
 use App\Enums\ResidencePermit;
+use App\Events\VatAlertRaised;
+use App\Filament\App\Pages\TaxOverview;
 use App\Models\BusinessEntity;
 use App\Models\TaxEstimation;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Carbon;
 use Throwable;
 
@@ -43,7 +47,7 @@ class TaxEngine
 
         $vat = $this->vat->evaluate($grossRevenue, $daysElapsed, $fiscalYear, $largestInvoice ?: null);
 
-        return TaxEstimation::create([
+        $estimation = TaxEstimation::create([
             'business_entity_id' => $entity->getKey(),
             'canton_id' => $profile?->canton_id ?? $entity->canton_id,
             'fiscal_year' => $fiscalYear,
@@ -60,6 +64,92 @@ class TaxEngine
             ],
             'rates_snapshot' => $result->ratesSnapshot,
         ]);
+
+        $this->syncVatAlert($entity, $vat['level'], (float) $vat['progress_pct'], $vat['crossing_date']);
+
+        return $estimation;
+    }
+
+    /**
+     * Alert bands ordered by escalation severity. A proactive owner
+     * notification fires only when the level rises into an actionable band
+     * (>= warning); the stored level always tracks the latest, so a drop below
+     * a band silently resets it and re-arms the notification for next time.
+     *
+     * @var array<string, int>
+     */
+    private const ALERT_RANK = [
+        'none' => 0,
+        'info' => 1,
+        'warning' => 2,
+        'critical' => 3,
+        'mandatory' => 4,
+    ];
+
+    /**
+     * Persist the new alert level on the entity and, when it has escalated into
+     * an actionable band, notify the owner (Filament DB notification) and
+     * broadcast on the per-business channel. Guarded column written via
+     * forceFill.
+     */
+    private function syncVatAlert(BusinessEntity $entity, string $newLevel, float $thresholdPct, ?string $crossingDate): void
+    {
+        $previousLevel = $entity->vat_alert_level ?? 'none';
+
+        if ($newLevel === $previousLevel) {
+            return;
+        }
+
+        $entity->forceFill(['vat_alert_level' => $newLevel])->save();
+
+        $previousRank = self::ALERT_RANK[$previousLevel] ?? 0;
+        $newRank = self::ALERT_RANK[$newLevel] ?? 0;
+
+        if ($newRank <= $previousRank || $newRank < self::ALERT_RANK['warning']) {
+            return;
+        }
+
+        $owner = $entity->owner;
+        if ($owner === null) {
+            return;
+        }
+
+        $body = $crossingDate !== null
+            ? "You've reached {$thresholdPct}% of the CHF 100'000 VAT registration threshold, on track to cross around ".Carbon::parse($crossingDate)->translatedFormat('F Y').'.'
+            : "You've reached {$thresholdPct}% of the CHF 100'000 VAT registration threshold.";
+
+        $notification = Notification::make()
+            ->title('Consider VAT registration')
+            ->body($body)
+            ->warning();
+
+        $taxUrl = $this->taxPageUrl($entity);
+        if ($taxUrl !== null) {
+            $notification->actions([
+                Action::make('review')
+                    ->label('Consider VAT registration')
+                    ->url($taxUrl)
+                    ->button(),
+            ]);
+        }
+
+        $notification->sendToDatabase($owner);
+
+        VatAlertRaised::dispatch($entity->getKey(), $newLevel, $thresholdPct, $crossingDate);
+    }
+
+    /**
+     * Resolve the tax overview URL for the notification CTA. Returns null when
+     * no panel context is available (e.g. a queued recalculation), in which
+     * case the notification is still delivered without the deep link.
+     */
+    private function taxPageUrl(BusinessEntity $entity): ?string
+    {
+        try {
+            return TaxOverview::getUrl(tenant: $entity);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

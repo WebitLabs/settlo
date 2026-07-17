@@ -5,7 +5,9 @@ namespace App\Filament\App\Resources\Invoices;
 use App\Filament\App\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\App\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\App\Resources\Invoices\Pages\ListInvoices;
+use App\Filament\App\Resources\Invoices\Pages\ViewInvoice;
 use App\Filament\App\Resources\Invoices\Schemas\InvoiceForm;
+use App\Filament\App\Resources\Invoices\Schemas\InvoiceInfolist;
 use App\Filament\App\Resources\Invoices\Tables\InvoicesTable;
 use App\Models\Invoice;
 use BackedEnum;
@@ -23,7 +25,7 @@ class InvoiceResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Sales';
+    protected static string|\UnitEnum|null $navigationGroup = 'Finance';
 
     protected static ?int $navigationSort = 1;
 
@@ -32,6 +34,11 @@ class InvoiceResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return InvoiceForm::configure($schema);
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return InvoiceInfolist::configure($schema);
     }
 
     public static function table(Table $table): Table
@@ -51,6 +58,7 @@ class InvoiceResource extends Resource
         return [
             'index' => ListInvoices::route('/'),
             'create' => CreateInvoice::route('/create'),
+            'view' => ViewInvoice::route('/{record}'),
             'edit' => EditInvoice::route('/{record}/edit'),
         ];
     }
