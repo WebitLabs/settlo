@@ -5,22 +5,25 @@ namespace App\Policies;
 use App\Models\BusinessEntity;
 use App\Models\Expense;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Default-deny. An owner manages expenses only within a business they own.
- * An accountant with an active assignment may view (read-only) — the write
- * paths stay owner-only. Writes require an access-granting subscription.
+ * An accountant with an active assignment through a firm they are a member of
+ * may view (read-only) — the write paths stay owner-only. Writes require an
+ * access-granting subscription.
  */
 class ExpensePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isOwner();
+        return $user->isOwner() || $user->isAccountant();
     }
 
     public function view(User $user, Expense $expense): bool
     {
-        return $this->owns($user, $expense) || $this->assignedAccountant($user, $expense);
+        return $this->owns($user, $expense)
+            || $this->assignedAccountant($user, $expense->business_entity_id);
     }
 
     public function create(User $user): bool
@@ -56,13 +59,16 @@ class ExpensePolicy
                 ->exists();
     }
 
-    private function assignedAccountant(User $user, Expense $expense): bool
+    /**
+     * An accountant may read a client's books only through an active
+     * (non-revoked) assignment owned by a firm they are a member of.
+     */
+    private function assignedAccountant(User $user, string $businessEntityId): bool
     {
         return $user->isAccountant()
-            && BusinessEntity::whereKey($expense->business_entity_id)
-                ->whereHas('accountantAssignments', fn ($q) => $q
-                    ->whereNull('revoked_at')
-                    ->where('accountant_id', $user->getKey()))
+            && $user->accountingFirms()
+                ->whereHas('activeAssignments', fn (Builder $query) => $query
+                    ->where('business_entity_id', $businessEntityId))
                 ->exists();
     }
 }

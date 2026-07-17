@@ -29,6 +29,8 @@ class FirmPanelProvider extends PanelProvider
             ->login()
             ->passwordReset()
             ->tenant(AccountingFirm::class)
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->colors([
                 'primary' => Color::hex('#0F6E56'),
                 'danger' => Color::hex('#E24B4A'),

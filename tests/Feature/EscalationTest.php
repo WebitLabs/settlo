@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Queue;
 beforeEach(function () {
     $this->seed(CantonSeeder::class);
     $this->seed(PlanSeeder::class);
-    config(['settlo.anthropic.api_key' => null]);
+    config(['services.gemini.key' => null]);
 });
 
 /**

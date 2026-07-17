@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AskSettlo\AskSettloController;
 use App\Http\Controllers\ExpenseReceiptController;
+use App\Http\Controllers\FirmInvitationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -13,6 +14,18 @@ Route::get('/', function () {
 Route::middleware('auth')
     ->get('/receipts/{expense}', ExpenseReceiptController::class)
     ->name('receipts.show');
+
+/*
+ * A client accepting a firm's invitation. The token is matched by hash and the
+ * signed-in owner's email must match the invitation; the controller re-derives
+ * the boundary and never trusts the URL.
+ */
+Route::middleware('auth')->group(function () {
+    Route::get('/firm-invitations/{token}', [FirmInvitationController::class, 'show'])
+        ->name('firm-invitations.accept');
+    Route::post('/firm-invitations/{token}', [FirmInvitationController::class, 'store'])
+        ->name('firm-invitations.store');
+});
 
 /*
  * Ask Settlo AI chat. Every route is tenant-scoped by the {businessEntity} owner
