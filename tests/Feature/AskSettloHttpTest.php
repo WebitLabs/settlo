@@ -17,7 +17,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->seed(ReferenceDataSeeder::class);
-    config(['settlo.anthropic.api_key' => null]);
+    config(['services.gemini.key' => null]);
 });
 
 /**

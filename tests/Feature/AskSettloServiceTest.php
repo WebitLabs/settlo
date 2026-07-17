@@ -6,8 +6,8 @@ use App\Models\BusinessEntity;
 use App\Models\TaxProfile;
 use App\Models\User;
 use App\Services\Ai\AiException;
-use App\Services\Ai\AnthropicResponder;
 use App\Services\Ai\AskSettloService;
+use App\Services\Ai\GeminiChatResponder;
 use Database\Seeders\CantonSeeder;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request;
@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     $this->seed(CantonSeeder::class);
-    // No Anthropic key in tests → the container resolves the fake responder.
-    config(['settlo.anthropic.api_key' => null]);
+    // No Gemini key in tests → the container resolves the fake responder.
+    config(['services.gemini.key' => null]);
 });
 
 function makeOwnerWithBusiness(): array
@@ -81,17 +81,23 @@ it('does not overwrite an explicit conversation title', function () {
     expect($conversation->refresh()->title)->toBe('My VAT thread');
 });
 
-it('calls the Anthropic messages endpoint with the api key, version, system prompt and full history', function () {
+it('calls the Gemini generateContent endpoint with the api key header, system instruction and role-mapped history', function () {
     Http::preventStrayRequests();
     Http::fake([
-        'api.anthropic.com/*' => Http::response([
-            'model' => 'claude-sonnet-4-20250514',
-            'content' => [['type' => 'text', 'text' => 'Yes — register once you cross the threshold.']],
-            'usage' => ['input_tokens' => 40, 'output_tokens' => 20],
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'Yes — register once you cross the threshold.']]],
+            ]],
+            'usageMetadata' => ['totalTokenCount' => 60],
         ]),
     ]);
 
-    $responder = new AnthropicResponder(app(HttpFactory::class), 'sk-test-key', 'claude-sonnet-4-20250514', 1000);
+    $responder = new GeminiChatResponder(
+        app(HttpFactory::class),
+        'gk-test-key',
+        'gemini-2.0-flash',
+        'https://generativelanguage.googleapis.com/v1beta',
+    );
 
     $reply = $responder->respond(
         [
@@ -105,27 +111,33 @@ it('calls the Anthropic messages endpoint with the api key, version, system prom
     expect($reply->content)->toBe('Yes — register once you cross the threshold.')
         ->and($reply->tokensUsed)->toBe(60)
         ->and($reply->confidence)->toBe(0.90)
-        ->and($reply->model)->toBe('claude-sonnet-4-20250514');
+        ->and($reply->model)->toBe('gemini-2.0-flash');
 
     Http::assertSent(function (Request $request) {
-        return $request->url() === 'https://api.anthropic.com/v1/messages'
-            && $request->hasHeader('x-api-key', 'sk-test-key')
-            && $request->hasHeader('anthropic-version', '2023-06-01')
-            && $request['system'] === 'You are Settlo AI.'
-            && $request['model'] === 'claude-sonnet-4-20250514'
-            && count($request['messages']) === 3
-            && $request['messages'][0] === ['role' => 'user', 'content' => 'Do I need VAT?']
-            && $request['messages'][2] === ['role' => 'user', 'content' => 'My turnover is CHF 120k.'];
+        return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+            && $request->hasHeader('x-goog-api-key', 'gk-test-key')
+            && ! str_contains($request->url(), 'gk-test-key')
+            && $request['system_instruction']['parts'][0]['text'] === 'You are Settlo AI.'
+            && $request['generationConfig']['maxOutputTokens'] === 1024
+            && count($request['contents']) === 3
+            && $request['contents'][0] === ['role' => 'user', 'parts' => [['text' => 'Do I need VAT?']]]
+            && $request['contents'][1] === ['role' => 'model', 'parts' => [['text' => 'It depends on your turnover.']]]
+            && $request['contents'][2] === ['role' => 'user', 'parts' => [['text' => 'My turnover is CHF 120k.']]];
     });
 });
 
 it('throws an AiException carrying only the status when the provider errors', function () {
     Http::preventStrayRequests();
     Http::fake([
-        'api.anthropic.com/*' => Http::response(['error' => 'sensitive provider detail'], 500),
+        'generativelanguage.googleapis.com/*' => Http::response(['error' => 'sensitive provider detail'], 500),
     ]);
 
-    $responder = new AnthropicResponder(app(HttpFactory::class), 'sk-test-key', 'claude-sonnet-4-20250514', 1000);
+    $responder = new GeminiChatResponder(
+        app(HttpFactory::class),
+        'gk-test-key',
+        'gemini-2.0-flash',
+        'https://generativelanguage.googleapis.com/v1beta',
+    );
 
     try {
         $responder->respond([['role' => 'user', 'content' => 'Hi']], 'You are Settlo AI.');
@@ -134,7 +146,7 @@ it('throws an AiException carrying only the status when the provider errors', fu
         expect($exception->getMessage())
             ->toContain('HTTP 500')
             ->not->toContain('sensitive provider detail')
-            ->not->toContain('sk-test-key');
+            ->not->toContain('gk-test-key');
     }
 });
 

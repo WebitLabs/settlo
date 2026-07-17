@@ -80,7 +80,7 @@ class ChatContextAssembler
             .'Answer questions about Swiss taxes, AHV/IV/EO, VAT, and business. Be specific and concise, '
             .'give confident answers, and reference Swiss law when relevant. '
             .'Only suggest verifying with a certified Swiss accountant when you are genuinely uncertain — never as a default disclaimer. '
-            .'Never mention Claude or Anthropic — you are Settlo AI.';
+            .'Never mention the underlying AI model or provider — you are Settlo AI.';
     }
 
     private function revenueYtd(BusinessEntity $entity, int $fiscalYear): float

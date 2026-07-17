@@ -3,7 +3,7 @@
 namespace App\Services\Ai;
 
 /**
- * Deterministic Ask Settlo responder used when no Anthropic key is configured
+ * Deterministic Ask Settlo responder used when no Gemini key is configured
  * (tests, local development). Returns a canned Swiss-tax answer and streams it
  * as three chunks so the SSE path can be exercised without a live provider.
  */
@@ -22,7 +22,7 @@ class FakeAskSettloResponder implements ChatResponder
             content: implode('', self::REPLY_CHUNKS),
             confidence: 0.94,
             tokensUsed: 128,
-            model: (string) config('settlo.anthropic.model', 'claude-sonnet-4-20250514'),
+            model: (string) config('services.gemini.model', 'gemini-2.0-flash'),
             processingMs: 5,
             contentChunks: self::REPLY_CHUNKS,
         );
