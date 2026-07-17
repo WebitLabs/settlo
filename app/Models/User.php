@@ -9,16 +9,19 @@ use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
+use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 
-class User extends Authenticatable implements FilamentUser, HasName
+class User extends Authenticatable implements FilamentUser, HasName, HasTenants
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
@@ -94,6 +97,42 @@ class User extends Authenticatable implements FilamentUser, HasName
     public function getFilamentName(): string
     {
         return trim("{$this->first_name} {$this->last_name}") ?: $this->email;
+    }
+
+    /**
+     * The tenants selectable in a panel. The app panel is scoped to the
+     * businesses this owner owns; the firm panel to the accounting firms this
+     * accountant belongs to. Other roles have no tenants here.
+     *
+     * @return Collection<int, Model>
+     */
+    public function getTenants(Panel $panel): Collection
+    {
+        return match ($panel->getId()) {
+            'app' => $this->ownedEntities()->get(),
+            'firm' => $this->accountingFirms()->get(),
+            default => collect(),
+        };
+    }
+
+    /**
+     * Default-deny cross-tenant guard: an owner may enter only a business they
+     * own, and an accountant only a firm they are a member of. This is the hard
+     * boundary that prevents tenant-hopping via a crafted URL.
+     */
+    public function canAccessTenant(Model $tenant): bool
+    {
+        if ($tenant instanceof BusinessEntity) {
+            return $this->role === UserRole::Owner
+                && $tenant->owner_id === $this->getKey();
+        }
+
+        if ($tenant instanceof AccountingFirm) {
+            return $this->role === UserRole::Accountant
+                && $this->accountingFirms()->whereKey($tenant->getKey())->exists();
+        }
+
+        return false;
     }
 
     public function isSuperadmin(): bool

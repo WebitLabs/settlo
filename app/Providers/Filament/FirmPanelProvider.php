@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Models\AccountingFirm;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -27,6 +28,7 @@ class FirmPanelProvider extends PanelProvider
             ->brandName('Settlo for Accountants')
             ->login()
             ->passwordReset()
+            ->tenant(AccountingFirm::class)
             ->colors([
                 'primary' => Color::hex('#0F6E56'),
                 'danger' => Color::hex('#E24B4A'),

@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Models\BusinessEntity;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -27,6 +28,7 @@ class AppPanelProvider extends PanelProvider
             ->brandName('Settlo')
             ->login()
             ->passwordReset()
+            ->tenant(BusinessEntity::class)
             ->colors([
                 'primary' => Color::hex('#00A878'),
                 'danger' => Color::hex('#E24B4A'),
