@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DeductibilityStatus;
+use App\Enums\ExpenseProcessingStatus;
 use App\Enums\ExpenseStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,10 +27,27 @@ class Expense extends Model
         'deductible_pct', 'notes',
     ];
 
+    /**
+     * Column defaults mirrored from the migration so a partially-filled model
+     * never writes NULL into a defaulted, non-nullable column.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => 'pending_review',
+        'processing_status' => 'manual',
+        'deductibility' => 'uncertain',
+        'currency_code' => 'CHF',
+        'vat_amount' => 0,
+        'vat_rate' => 0,
+        'net_amount' => 0,
+    ];
+
     protected function casts(): array
     {
         return [
             'status' => ExpenseStatus::class,
+            'processing_status' => ExpenseProcessingStatus::class,
             'deductibility' => DeductibilityStatus::class,
             'amount' => 'decimal:2',
             'vat_amount' => 'decimal:2',

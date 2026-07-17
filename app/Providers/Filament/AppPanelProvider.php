@@ -29,6 +29,8 @@ class AppPanelProvider extends PanelProvider
             ->login()
             ->passwordReset()
             ->tenant(BusinessEntity::class)
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->colors([
                 'primary' => Color::hex('#00A878'),
                 'danger' => Color::hex('#E24B4A'),
