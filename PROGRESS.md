@@ -16,15 +16,15 @@ Living document. Updated after every phase. Specs live in `settlo-specs/`.
 | 3 Invoicing | `0c51045` | Clients CRUD, invoices with line items + live totals, invoice numbering (locked sequence), Swiss QR-bill (QRR/SCOR) PDF via dompdf (hardened), send/markPaid/cancel/overdue lifecycle, issued invoices immutable |
 | 4 Expenses | `1ba67b4` | Receipt upload (private disk) → Horizon `files` queue → Gemini OCR → review/confirm flow, `processing_status` with real-time broadcast (`business.{id}` private channel) + table polling loaders, category matching, authz'd receipt download |
 | 5 UI | `d8518f7` | Dashboard widgets (BusinessOverview stats, RecentInvoices), `/tax` page with breakdown + canton comparison, plan-gated |
+| 6 Ask Settlo | `71e7f0a` + `f233c42` | 3-pane Inertia chat (SSE streaming + fallback), per-call context assembly (canton/revenue/VAT/profile → `context_snapshot`), escalations with atomic quota consumption + simulated accountant answer on `ai` queue + broadcast, dashboard preview widget, demo seeds. Engine: **Gemini** (`GeminiChatResponder`, same `GEMINI_API_KEY` as OCR; fake responder when key empty) |
+| 7 Firm panel | `20be417` | Read-only client books behind active-assignment policies, escalation queue (claim/answer/KB capture/SLA), hashed-token client invitations + accept flow, member management, firm dashboard widgets, settings |
 
-Tests: 77 passing. Queue: Horizon (Redis, port 6380). OCR: Gemini (`GEMINI_API_KEY` in `.env`, empty → FakeExtractor). Real-time: Reverb + Filament DB notifications + table polling.
+Tests: 124 passing. Queue: Horizon (Redis, port 6380). OCR: Gemini (`GEMINI_API_KEY` in `.env`, empty → FakeExtractor). Real-time: Reverb + Filament DB notifications + table polling.
 
 ## Remaining
 
-- **Phase 6 — Ask Settlo**: chat UI, Claude API (server-side), escalation to accountant, monthly answer quotas (plumbing exists in `SubscriptionService`).
-- **Phase 7 — Firm panel**: client list, read-only client books, email invitations (hashed tokens), escalation queue, firm members.
 - **Phase 8 — Superadmin**: CRUD resources, tax-config management, MRR/growth/SLA dashboards, impersonation + audit trail.
-- **Phase 9 — Polish**: onboarding wizard, settings pages, full test pass, pint, npm build.
+- **Phase 9 — Polish**: onboarding wizard, settings pages, VAT alert banner, invoice/expense polish, full test pass, pint, npm build.
 
 ## Gap analysis
 
