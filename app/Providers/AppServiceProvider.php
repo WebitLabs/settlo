@@ -7,9 +7,12 @@ use App\Billing\PaymentGateway;
 use App\Services\Ai\ChatResponder;
 use App\Services\Ai\FakeAskSettloResponder;
 use App\Services\Ai\GeminiChatResponder;
+use App\Services\Audit\ImpersonationService;
 use App\Services\Extraction\FakeExtractor;
 use App\Services\Extraction\GeminiExtractor;
 use App\Services\Extraction\ReceiptExtractor;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
@@ -64,5 +67,14 @@ class AppServiceProvider extends ServiceProvider
     {
         // Surface N+1 queries during local development.
         Model::preventLazyLoading($this->app->environment('local'));
+
+        // A global amber banner is shown across every panel whenever a
+        // superadmin is impersonating another user, with a one-click stop.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_START,
+            fn (): string => app(ImpersonationService::class)->isImpersonating()
+                ? view('impersonation-banner')->render()
+                : '',
+        );
     }
 }

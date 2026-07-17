@@ -3,12 +3,22 @@
 use App\Http\Controllers\AskSettlo\AskSettloController;
 use App\Http\Controllers\ExpenseReceiptController;
 use App\Http\Controllers\FirmInvitationController;
+use App\Http\Controllers\ImpersonationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
 });
+
+/*
+ * Ends an admin impersonation session from the global banner. Available while
+ * authenticated as the impersonated user; the service restores the original
+ * superadmin and returns them to the admin panel.
+ */
+Route::middleware('auth')
+    ->post('/impersonation/stop', [ImpersonationController::class, 'stop'])
+    ->name('impersonation.stop');
 
 // Authorised download of a private receipt file (policy-checked in the controller).
 Route::middleware('auth')
