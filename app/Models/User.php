@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\PlanFeature;
+use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
@@ -145,5 +147,50 @@ class User extends Authenticatable implements FilamentUser, HasName
         return $this->belongsToMany(AccountingFirm::class, 'accounting_firm_members')
             ->withPivot(['is_owner', 'joined_at'])
             ->withTimestamps();
+    }
+
+    // Plan gating ---------------------------------------------------------
+
+    /**
+     * The plan features currently available to this user. A trial grants full
+     * Pro-tier features on top of the chosen plan (per spec); an expired or
+     * cancelled subscription grants nothing.
+     *
+     * @return list<string>
+     */
+    public function planFeatures(): array
+    {
+        $subscription = $this->subscription;
+
+        if (! $subscription || ! $subscription->grantsAccess()) {
+            return [];
+        }
+
+        $features = $subscription->plan?->features ?? [];
+
+        if ($subscription->status === SubscriptionStatus::Trialing) {
+            $proFeatures = Plan::where('code', 'pro')->value('features') ?? [];
+            $features = array_values(array_unique([...$features, ...$proFeatures]));
+        }
+
+        return $features;
+    }
+
+    public function hasFeature(PlanFeature $feature): bool
+    {
+        if (! config('settlo.enforce_feature_gates', true)) {
+            return $this->subscription?->grantsAccess() ?? false;
+        }
+
+        return in_array($feature->value, $this->planFeatures(), true);
+    }
+
+    /**
+     * Whether the account may perform writes. An expired/cancelled-and-ended
+     * subscription drops the account into a read-only locked state.
+     */
+    public function canWrite(): bool
+    {
+        return $this->subscription?->grantsAccess() ?? false;
     }
 }
