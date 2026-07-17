@@ -27,7 +27,7 @@ class InvoiceLineItemFactory extends Factory
             'quantity' => $qty,
             'unit_price' => $price,
             'vat_rate' => 8.1,
-            'line_total' => round($qty * $price * 1.081, 2),
+            'line_total' => round($qty * $price, 2), // net of VAT
             'sort_order' => 0,
         ];
     }
