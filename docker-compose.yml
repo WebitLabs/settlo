@@ -1,0 +1,21 @@
+services:
+  pgsql:
+    image: postgres:17-alpine
+    container_name: settlo-pgsql
+    restart: unless-stopped
+    ports:
+      - '${DB_PORT:-5433}:5432'
+    environment:
+      POSTGRES_DB: '${DB_DATABASE:-settlo}'
+      POSTGRES_USER: '${DB_USERNAME:-settlo}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+    volumes:
+      - pgsql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-q', '-d', '${DB_DATABASE:-settlo}', '-U', '${DB_USERNAME:-settlo}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgsql-data:

@@ -38,6 +38,18 @@ return [
             'report' => false,
         ],
 
+        // Private disk for financial documents (receipts). Never served
+        // directly — access only through an authenticated, tenant-checked
+        // download route. No public URL.
+        'receipts' => [
+            'driver' => 'local',
+            'root' => storage_path('app/receipts'),
+            'serve' => false,
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

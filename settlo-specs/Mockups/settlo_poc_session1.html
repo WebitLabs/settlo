@@ -1,0 +1,758 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body,html{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+:root{
+  --dark:#0D1F2D;--mid:#1A3344;--light:#2D4A5A;--muted:#7B9BAD;
+  --accent:#00A878;--accent-l:#D4F0E8;--accent-d:#0F6E56;--accent-dk:#085041;
+  --warn:#F59E0B;--warn-l:#FEF3C7;--warn-d:#854F0B;
+  --danger:#E24B4A;--danger-l:#FCEBEB;--danger-d:#791F1F;
+  --bg:#F0F2F5;--card:#fff;--border:#E2E8F0;--border2:#CBD5E1;
+  --text:#0D1F2D;--text2:#4A5568;--text3:#9CA3AF;
+  --r:8px;--rl:12px;
+}
+.app{display:flex;flex-direction:column;height:600px;border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--border);}
+.topbar{background:var(--dark);height:48px;display:flex;align-items:center;padding:0 16px;gap:0;flex-shrink:0;}
+.t-logo{display:flex;align-items:center;gap:7px;min-width:160px;}
+.t-sq{width:24px;height:24px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#fff;flex-shrink:0;}
+.t-txt{font-size:14px;font-weight:500;color:#fff;}
+.t-nav{display:flex;gap:2px;flex:1;}
+.t-item{padding:5px 11px;border-radius:var(--r);font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.t-item:hover{color:#fff;}
+.t-item.active{background:var(--mid);color:#fff;}
+.t-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.t-avatar{width:26px;height:26px;border-radius:50%;background:var(--mid);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);}
+.body{display:grid;grid-template-columns:168px minmax(0,1fr);flex:1;overflow:hidden;}
+.sidebar{background:#0A1B28;padding:10px 0;display:flex;flex-direction:column;overflow-y:auto;}
+.e-pill{margin:0 8px 12px;background:var(--mid);border-radius:var(--r);padding:7px 9px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:4px;}
+.e-name{font-size:11px;font-weight:500;color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.e-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+.ns{font-size:9px;font-weight:500;color:#2D4A5A;padding:8px 12px 3px;text-transform:uppercase;letter-spacing:.07em;}
+.ni{display:flex;align-items:center;gap:7px;padding:7px 12px;font-size:12px;color:var(--muted);cursor:pointer;transition:background .1s;}
+.ni:hover{background:rgba(255,255,255,.04);}
+.ni.active{background:var(--mid);color:#fff;}
+.ni i{font-size:14px;flex-shrink:0;}
+.nb{margin-left:auto;background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;}
+.sf{margin-top:auto;padding:10px 12px 12px;border-top:0.5px solid var(--mid);display:flex;align-items:center;gap:7px;}
+.sa{width:26px;height:26px;border-radius:50%;background:var(--mid);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);flex-shrink:0;}
+.content{background:var(--bg);overflow-y:auto;display:flex;flex-direction:column;}
+.screen{display:none;padding:18px 20px;flex:1;flex-direction:column;gap:14px;}
+.screen.active{display:flex;}
+
+/* ONBOARDING */
+.ob-wrap{display:flex;flex-direction:column;height:100%;}
+.ob-prog{height:3px;background:var(--mid);display:flex;gap:2px;flex-shrink:0;}
+.ob-seg{flex:1;height:3px;}
+.ob-seg.done{background:var(--accent);}
+.ob-seg.cur{background:#7FCFB5;}
+.ob-seg.todo{background:#2D4A5A;}
+.ob-main{display:grid;grid-template-columns:200px minmax(0,1fr);flex:1;overflow:hidden;}
+.ob-steps{background:#0A1B28;padding:18px 14px;display:flex;flex-direction:column;overflow-y:auto;}
+.ob-stitle{font-size:9px;font-weight:500;color:#3D5A6A;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;}
+.si{display:flex;align-items:flex-start;gap:9px;padding:8px 9px;border-radius:var(--r);cursor:pointer;}
+.si.active{background:var(--mid);}
+.sn{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0;margin-top:1px;}
+.si.done .sn{background:var(--accent);color:#fff;}
+.si.active .sn{background:#fff;color:var(--dark);}
+.si.todo .sn{background:var(--mid);color:var(--muted);border:.5px solid #2D4A5A;}
+.st{font-size:12px;font-weight:500;}
+.si.active .st{color:#fff;}
+.si.done .st{color:var(--muted);}
+.si.todo .st{color:#3D5A6A;}
+.ss{font-size:10px;margin-top:1px;}
+.si.active .ss{color:var(--muted);}
+.si.done .ss,.si.todo .ss{color:#2D4A5A;}
+.sc{width:1px;height:8px;background:#1E3548;margin-left:19px;}
+.ob-form{padding:22px 24px;overflow-y:auto;display:flex;flex-direction:column;}
+.ob-h{font-size:16px;font-weight:500;color:var(--text);margin-bottom:3px;}
+.ob-s{font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.5;}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.fg{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.fl{font-size:11px;font-weight:500;color:var(--text2);}
+.fh{font-size:10px;color:var(--text3);margin-top:2px;line-height:1.4;}
+.fi{padding:8px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--card);font-size:13px;color:var(--text);font-family:inherit;width:100%;}
+.fi::placeholder{color:var(--text3);}
+.fs{padding:8px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--card);font-size:13px;color:var(--text);font-family:inherit;width:100%;cursor:pointer;appearance:none;}
+.ob-actions{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:16px;border-top:.5px solid var(--border);}
+.ob-step-ind{font-size:11px;color:var(--text3);}
+.btn-back{display:flex;align-items:center;gap:4px;padding:7px 13px;border-radius:var(--r);font-size:13px;font-weight:500;color:var(--text2);border:.5px solid var(--border2);background:transparent;cursor:pointer;font-family:inherit;}
+.btn-next{display:flex;align-items:center;gap:5px;padding:7px 16px;border-radius:var(--r);font-size:13px;font-weight:500;color:#fff;background:var(--accent);border:none;cursor:pointer;font-family:inherit;}
+.btn-next:hover{background:#00956A;}
+.canton-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-bottom:8px;}
+.cp{padding:7px 4px;border-radius:var(--r);border:.5px solid var(--border);font-size:11px;text-align:center;cursor:pointer;color:var(--text);transition:all .1s;}
+.cp:hover{border-color:var(--accent);}
+.cp.sel{border-color:var(--accent);border-width:1.5px;background:#F0FBF7;color:var(--accent-d);font-weight:500;}
+.lt-row{display:flex;gap:4px;}
+.lt{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:.5px solid var(--border);color:var(--text2);transition:all .1s;}
+.lt.active{background:var(--mid);color:#fff;border-color:var(--mid);}
+.plan-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.pc{padding:13px 14px;border-radius:var(--rl);border:.5px solid var(--border);cursor:pointer;transition:border .1s;}
+.pc:hover{border-color:var(--accent);}
+.pc.sel{border-color:var(--accent);border-width:1.5px;}
+.pc-badge{font-size:10px;font-weight:500;background:var(--accent-l);color:var(--accent-d);padding:2px 7px;border-radius:4px;display:inline-block;margin-bottom:7px;}
+.pc-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px;}
+.pc-price{font-size:16px;font-weight:500;color:var(--accent);margin-bottom:8px;}
+.pc-price span{font-size:11px;font-weight:400;color:var(--text3);}
+.pf{display:flex;align-items:flex-start;gap:5px;font-size:11px;color:var(--text2);margin-bottom:4px;line-height:1.35;}
+.pf i{font-size:12px;color:var(--accent);flex-shrink:0;margin-top:1px;}
+.pf.dim i{color:var(--text3);}
+.pf.dim{color:var(--text3);}
+.success-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px;flex:1;}
+.success-icon{width:56px;height:56px;border-radius:50%;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--accent-d);margin-bottom:16px;}
+.success-summary{background:var(--bg);border-radius:var(--rl);padding:14px 18px;width:100%;max-width:320px;margin:16px 0 24px;text-align:left;}
+.sum-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border);}
+.sum-row:last-child{border-bottom:none;}
+.sum-lbl{color:var(--text2);}
+.sum-val{font-weight:500;color:var(--text);}
+
+/* DASHBOARD */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;}
+.page-title{font-size:16px;font-weight:500;color:var(--text);}
+.page-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.sc{background:var(--card);border-radius:var(--r);padding:13px 14px;border:.5px solid var(--border);}
+.sc.dark{background:var(--dark);border-color:var(--mid);}
+.sl{font-size:11px;color:var(--text3);margin-bottom:5px;display:flex;align-items:center;gap:4px;}
+.sl i{font-size:12px;}
+.sc.dark .sl{color:var(--muted);}
+.sv{font-size:18px;font-weight:500;color:var(--text);}
+.sc.dark .sv{color:#fff;}
+.sd{font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.two-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+.card{background:var(--card);border-radius:var(--rl);border:.5px solid var(--border);overflow:hidden;min-width:0;}
+.ch{padding:10px 14px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.ct{font-size:12px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:6px;}
+.ct i{font-size:14px;color:var(--accent);}
+.ca{font-size:11px;color:var(--accent);cursor:pointer;}
+.cb{padding:13px 14px;}
+.inv-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border);gap:8px;}
+.inv-row:last-child{border-bottom:none;padding-bottom:0;}
+.inv-l{flex:1;min-width:0;}
+.inv-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.inv-meta{font-size:10px;color:var(--text3);margin-top:1px;}
+.inv-r{text-align:right;flex-shrink:0;}
+.inv-amt{font-size:12px;font-weight:500;}
+.badge{font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:2px;}
+.badge.g{background:var(--accent-l);color:var(--accent-d);}
+.badge.y{background:var(--warn-l);color:var(--warn-d);}
+.badge.r{background:var(--danger-l);color:var(--danger-d);}
+.tax-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border);gap:8px;}
+.tax-row:last-child{border-bottom:none;}
+.tl{font-size:12px;color:var(--text2);}
+.tv{font-size:12px;font-weight:500;color:var(--text);flex-shrink:0;}
+.reserve{background:var(--accent-l);border-radius:var(--r);padding:10px 12px;margin-top:10px;}
+.rl{font-size:10px;font-weight:500;color:var(--accent-d);margin-bottom:2px;}
+.rv{font-size:18px;font-weight:500;color:var(--accent-dk);}
+.rs{font-size:10px;color:var(--accent-d);margin-top:2px;}
+.vat-bar{margin-top:10px;}
+.vb-label{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px;}
+.vb-bg{height:5px;background:var(--bg);border-radius:3px;overflow:hidden;}
+.vb-fill{height:100%;background:var(--accent);border-radius:3px;}
+.vb-note{font-size:10px;color:var(--text3);margin-top:3px;}
+.ai-bubble{background:var(--bg);border-radius:var(--r);padding:11px 12px;margin-bottom:7px;}
+.ai-q{font-size:11px;color:var(--text3);margin-bottom:3px;}
+.ai-a{font-size:12px;color:var(--text);line-height:1.55;}
+.ai-footer{display:flex;justify-content:space-between;align-items:center;margin-top:7px;flex-wrap:wrap;gap:6px;}
+.ai-conf{font-size:10px;color:var(--accent);display:flex;align-items:center;gap:3px;}
+.ai-verify{font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;}
+.chip-row{display:flex;gap:5px;flex-wrap:wrap;}
+.chip{font-size:11px;padding:3px 9px;border-radius:20px;border:.5px solid var(--border2);color:var(--text2);cursor:pointer;background:var(--card);}
+.chip:hover{border-color:var(--accent);color:var(--accent);}
+.todo-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--border);}
+.todo-row:last-child{border-bottom:none;}
+.todo-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.todo-txt{font-size:12px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.todo-due{font-size:10px;color:var(--text3);flex-shrink:0;}
+</style>
+
+<h2 class="sr-only">Settlo POC — clickable prototype with onboarding and dashboard</h2>
+
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="t-logo"><div class="t-sq">S</div><div class="t-txt">Settlo</div></div>
+    <div class="t-nav" id="topnav" style="display:none;">
+      <div class="t-item active" onclick="nav('dashboard')" id="nav-dashboard">Dashboard</div>
+      <div class="t-item" onclick="nav('invoices')" id="nav-invoices">Invoices</div>
+      <div class="t-item" onclick="nav('expenses')" id="nav-expenses">Expenses</div>
+      <div class="t-item" onclick="nav('tax')" id="nav-tax">Tax engine</div>
+      <div class="t-item" onclick="nav('ai')" id="nav-ai">Ask Settlo</div>
+    </div>
+    <div class="t-right">
+      <i class="ti ti-bell" style="font-size:16px;color:#7B9BAD;" aria-hidden="true"></i>
+      <div class="t-avatar" id="user-avatar" style="display:none;">AM</div>
+    </div>
+  </div>
+
+  <div class="body" id="main-body" style="grid-template-columns:1fr;">
+
+    <!-- ONBOARDING -->
+    <div id="onboarding" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+      <div class="ob-wrap">
+        <div class="ob-prog" id="ob-prog">
+          <div class="ob-seg cur"></div>
+          <div class="ob-seg todo"></div>
+          <div class="ob-seg todo"></div>
+          <div class="ob-seg todo"></div>
+          <div class="ob-seg todo"></div>
+        </div>
+        <div class="ob-main">
+          <div class="ob-steps">
+            <div class="ob-stitle">Setup</div>
+            <div class="si active" id="s1"><div class="sn">1</div><div><div class="st">Create account</div><div class="ss">Email & password</div></div></div>
+            <div class="sc"></div>
+            <div class="si todo" id="s2"><div class="sn">2</div><div><div class="st">Business profile</div><div class="ss">Name, address, logo</div></div></div>
+            <div class="sc"></div>
+            <div class="si todo" id="s3"><div class="sn">3</div><div><div class="st">Banking</div><div class="ss">IBAN, defaults</div></div></div>
+            <div class="sc"></div>
+            <div class="si todo" id="s4"><div class="sn">4</div><div><div class="st">Tax profile</div><div class="ss">Canton, personal</div></div></div>
+            <div class="sc"></div>
+            <div class="si todo" id="s5"><div class="sn">5</div><div><div class="st">Choose plan</div><div class="ss">14 days free</div></div></div>
+          </div>
+          <div class="ob-form" id="ob-form"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- APP (after onboarding) -->
+    <div id="app-shell" style="display:none;grid-template-columns:168px minmax(0,1fr);flex:1;overflow:hidden;" class="body">
+      <div class="sidebar">
+        <div class="e-pill"><div style="min-width:0;"><div class="e-name" id="biz-name">Anna Müller Consulting</div><div class="e-sub" id="biz-sub">Sole propr. · Zürich</div></div><i class="ti ti-selector" style="color:#7B9BAD;font-size:12px;flex-shrink:0;" aria-hidden="true"></i></div>
+        <div class="ns">Overview</div>
+        <div class="ni active" onclick="nav('dashboard')" id="sb-dashboard"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Dashboard</div>
+        <div class="ni" onclick="nav('invoices')" id="sb-invoices"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoices <span class="nb">2</span></div>
+        <div class="ni" onclick="nav('expenses')" id="sb-expenses"><i class="ti ti-receipt" aria-hidden="true"></i> Expenses</div>
+        <div class="ns">Finance</div>
+        <div class="ni" onclick="nav('tax')" id="sb-tax"><i class="ti ti-chart-bar" aria-hidden="true"></i> Tax engine</div>
+        <div class="ni"><i class="ti ti-building-bank" aria-hidden="true"></i> Bank accounts</div>
+        <div class="ns">Support</div>
+        <div class="ni" onclick="nav('ai')" id="sb-ai"><i class="ti ti-message" aria-hidden="true"></i> Ask Settlo <span class="nb">1</span></div>
+        <div class="ni"><i class="ti ti-users" aria-hidden="true"></i> My accountant</div>
+        <div class="ni"><i class="ti ti-settings" aria-hidden="true"></i> Settings</div>
+        <div class="sf"><div class="sa">AM</div><div style="min-width:0;"><div style="font-size:11px;font-weight:500;color:#fff;" id="sf-name">Anna Müller</div><div style="font-size:10px;color:#7B9BAD;" id="sf-plan">Pro · trial</div></div></div>
+      </div>
+      <div style="overflow:hidden;display:flex;flex-direction:column;">
+        <div class="screen active" id="screen-dashboard">
+          <div class="page-header">
+            <div><div class="page-title" id="dash-greeting">Good morning, Anna.</div><div class="page-sub">Monday, 2 June 2026 · Fiscal year 2026</div></div>
+            <div style="display:flex;gap:7px;">
+              <div style="display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--card);font-size:12px;font-weight:500;color:var(--text);cursor:pointer;"><i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Upload receipt</div>
+              <div style="display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r);background:var(--accent);font-size:12px;font-weight:500;color:#fff;cursor:pointer;" onclick="nav('invoices')"><i class="ti ti-plus" style="font-size:13px;" aria-hidden="true"></i> New invoice</div>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="sc"><div class="sl"><i class="ti ti-trending-up" aria-hidden="true"></i> Revenue YTD</div><div class="sv">CHF 68,400</div><div class="sd" style="color:var(--accent);">+12% vs last year</div></div>
+            <div class="sc"><div class="sl"><i class="ti ti-receipt" aria-hidden="true"></i> Expenses YTD</div><div class="sv">CHF 14,200</div><div class="sd" style="color:var(--text3);">57% net margin</div></div>
+            <div class="sc"><div class="sl"><i class="ti ti-calculator" aria-hidden="true"></i> Est. total tax</div><div class="sv">CHF 22,100</div><div class="sd" style="color:var(--text3);">income + AHV · ZH</div></div>
+            <div class="sc dark"><div class="sl"><i class="ti ti-piggy-bank" aria-hidden="true"></i> Monthly reserve</div><div class="sv">CHF 1,842</div><div class="sd" style="color:var(--accent);">6 months remaining</div></div>
+          </div>
+          <div class="two-col">
+            <div class="card">
+              <div class="ch"><div class="ct"><i class="ti ti-file-invoice" aria-hidden="true"></i> Recent invoices</div><div class="ca" onclick="nav('invoices')">View all</div></div>
+              <div class="cb">
+                <div class="inv-row"><div class="inv-l"><div class="inv-name">Acme AG</div><div class="inv-meta">INV-2026-0041 · Due 28 May</div></div><div class="inv-r"><div class="inv-amt">CHF 4,200</div><div class="badge y">Pending</div></div></div>
+                <div class="inv-row"><div class="inv-l"><div class="inv-name">Helvetia Solutions</div><div class="inv-meta">INV-2026-0040 · Paid 12 May</div></div><div class="inv-r"><div class="inv-amt">CHF 8,500</div><div class="badge g">Paid</div></div></div>
+                <div class="inv-row"><div class="inv-l"><div class="inv-name">Zurich Tech GmbH</div><div class="inv-meta">INV-2026-0039 · Paid 3 May</div></div><div class="inv-r"><div class="inv-amt">CHF 3,100</div><div class="badge g">Paid</div></div></div>
+                <div class="inv-row"><div class="inv-l"><div class="inv-name">Berg &amp; Partner AG</div><div class="inv-meta">INV-2026-0038 · Overdue 1 May</div></div><div class="inv-r"><div class="inv-amt">CHF 2,800</div><div class="badge r">Overdue</div></div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="ch"><div class="ct"><i class="ti ti-receipt-tax" aria-hidden="true"></i> Tax estimation · Zürich 2026</div><div class="ca" onclick="nav('tax')">Full breakdown</div></div>
+              <div class="cb">
+                <div class="tax-row"><div class="tl">Income tax (cantonal + federal)</div><div class="tv">CHF 9,840</div></div>
+                <div class="tax-row"><div class="tl">AHV contributions</div><div class="tv">CHF 7,250</div></div>
+                <div class="tax-row"><div class="tl">IV / EO</div><div class="tv">CHF 1,010</div></div>
+                <div class="tax-row"><div class="tl">VAT (not registered)</div><div class="tv" style="color:var(--text3);">—</div></div>
+                <div class="tax-row" style="border-top:.5px solid var(--border2);margin-top:4px;padding-top:9px;"><div style="font-size:13px;font-weight:500;">Total estimated</div><div style="font-size:14px;font-weight:500;">CHF 22,100</div></div>
+                <div class="vat-bar"><div class="vb-label"><span>VAT threshold</span><span>CHF 68,400 / 100,000</span></div><div class="vb-bg"><div class="vb-fill" style="width:68%;"></div></div><div class="vb-note">68% — consider registering around August</div></div>
+                <div class="reserve"><div class="rl">Monthly reserve recommended</div><div class="rv">CHF 1,842</div><div class="rs">6 months remaining · updated weekly</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="two-col">
+            <div class="card">
+              <div class="ch"><div class="ct"><i class="ti ti-message" aria-hidden="true"></i> Ask Settlo</div><div class="ca" onclick="nav('ai')">Open chat</div></div>
+              <div class="cb">
+                <div class="ai-bubble">
+                  <div class="ai-q">Do I need to register for VAT?</div>
+                  <div class="ai-a">At CHF 68,400 YTD you're at 68% of the threshold. At your current pace you'll cross it around September. Register voluntarily in August to avoid penalties.</div>
+                  <div class="ai-footer"><div class="ai-conf"><i class="ti ti-circle-check" style="font-size:12px;" aria-hidden="true"></i> High confidence</div><div class="ai-verify" onclick="nav('ai')">Verify with accountant</div></div>
+                </div>
+                <div class="chip-row"><div class="chip" onclick="nav('ai')">Can I deduct this?</div><div class="chip" onclick="nav('ai')">How much to reserve?</div><div class="chip" onclick="nav('ai')">AHV question</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="ch"><div class="ct"><i class="ti ti-checkbox" aria-hidden="true"></i> To-do</div></div>
+              <div class="cb">
+                <div class="todo-row"><div class="todo-dot" style="background:#E24B4A;"></div><div class="todo-txt">Follow up: Berg &amp; Partner overdue invoice</div><div class="todo-due">Today</div></div>
+                <div class="todo-row"><div class="todo-dot" style="background:#F59E0B;"></div><div class="todo-txt">Review Digitec receipt categorization</div><div class="todo-due">This week</div></div>
+                <div class="todo-row"><div class="todo-dot" style="background:#00A878;"></div><div class="todo-txt">Consider VAT registration before September</div><div class="todo-due">Aug 2026</div></div>
+                <div class="todo-row"><div class="todo-dot" style="background:#7B9BAD;"></div><div class="todo-txt">Accountant answered your AHV question</div><div class="todo-due">New</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-invoices">
+          <div class="page-header"><div><div class="page-title">Invoices</div><div class="page-sub">4 invoices · CHF 18,600 total</div></div><div style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--r);background:var(--accent);font-size:12px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-plus" style="font-size:13px;" aria-hidden="true"></i> New invoice</div></div>
+          <div class="card">
+            <div class="ch"><div class="ct"><i class="ti ti-file-invoice" aria-hidden="true"></i> All invoices</div></div>
+            <div class="cb" style="padding:0;">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 100px 90px 80px;gap:0;border-bottom:.5px solid var(--border);padding:8px 14px;background:var(--bg);">
+                <div style="font-size:11px;font-weight:500;color:var(--text3);">Client</div>
+                <div style="font-size:11px;font-weight:500;color:var(--text3);">Number</div>
+                <div style="font-size:11px;font-weight:500;color:var(--text3);">Date</div>
+                <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:right;">Amount</div>
+                <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:center;">Status</div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 100px 90px 80px;gap:0;border-bottom:.5px solid var(--border);padding:10px 14px;cursor:pointer;" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+                <div style="font-size:13px;font-weight:500;">Acme AG</div>
+                <div style="font-size:12px;color:var(--text3);">0041</div>
+                <div style="font-size:12px;color:var(--text3);">02.06.2026</div>
+                <div style="font-size:13px;font-weight:500;text-align:right;">CHF 4,200</div>
+                <div style="text-align:center;"><div class="badge y">Pending</div></div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 100px 90px 80px;gap:0;border-bottom:.5px solid var(--border);padding:10px 14px;cursor:pointer;" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+                <div style="font-size:13px;font-weight:500;">Helvetia Solutions</div>
+                <div style="font-size:12px;color:var(--text3);">0040</div>
+                <div style="font-size:12px;color:var(--text3);">12.05.2026</div>
+                <div style="font-size:13px;font-weight:500;text-align:right;">CHF 8,500</div>
+                <div style="text-align:center;"><div class="badge g">Paid</div></div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 100px 90px 80px;gap:0;border-bottom:.5px solid var(--border);padding:10px 14px;cursor:pointer;" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+                <div style="font-size:13px;font-weight:500;">Zurich Tech GmbH</div>
+                <div style="font-size:12px;color:var(--text3);">0039</div>
+                <div style="font-size:12px;color:var(--text3);">03.05.2026</div>
+                <div style="font-size:13px;font-weight:500;text-align:right;">CHF 3,100</div>
+                <div style="text-align:center;"><div class="badge g">Paid</div></div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 100px 90px 80px;gap:0;padding:10px 14px;cursor:pointer;" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+                <div style="font-size:13px;font-weight:500;">Berg &amp; Partner AG</div>
+                <div style="font-size:12px;color:var(--text3);">0038</div>
+                <div style="font-size:12px;color:var(--text3);">01.05.2026</div>
+                <div style="font-size:13px;font-weight:500;text-align:right;">CHF 2,800</div>
+                <div style="text-align:center;"><div class="badge r">Overdue</div></div>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--card);border-radius:var(--rl);border:.5px solid var(--border);padding:20px;text-align:center;color:var(--text3);font-size:13px;cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <i class="ti ti-plus" style="font-size:20px;display:block;margin-bottom:6px;color:var(--accent);" aria-hidden="true"></i>
+            Create new invoice — Session 2 coming soon
+          </div>
+        </div>
+
+        <div class="screen" id="screen-expenses">
+          <div class="page-header"><div><div class="page-title">Expenses</div><div class="page-sub">4 expenses · CHF 3,449 total</div></div><div style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--r);background:var(--accent);font-size:12px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Upload receipt</div></div>
+          <div class="card">
+            <div class="ch"><div class="ct"><i class="ti ti-receipt" aria-hidden="true"></i> All expenses</div></div>
+            <div class="cb" style="padding:0;">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 80px 80px 90px;gap:0;border-bottom:.5px solid var(--border);padding:8px 14px;background:var(--bg);">
+                <div style="font-size:11px;font-weight:500;color:var(--text3);">Vendor</div>
+                <div style="font-size:11px;font-weight:500;color:var(--text3);">Category</div>
+                <div style="font-size:11px;font-weight:500;color:var(--text3);">Date</div>
+                <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:right;">Amount</div>
+                <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:center;">Deductible</div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 80px 80px 90px;gap:0;border-bottom:.5px solid var(--border);padding:10px 14px;">
+                <div style="font-size:13px;font-weight:500;">Apple MacBook Pro</div>
+                <div style="font-size:12px;color:var(--text3);">Equipment</div>
+                <div style="font-size:12px;color:var(--text3);">15.05.2026</div>
+                <div style="font-size:13px;font-weight:500;text-align:right;">CHF 2,899</div>
+                <div style="text-align:center;"><div class="badge g">100%</div></div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 80px 80px 90px;gap:0;border-bottom:.5px solid var(--border);padding:10px 14px;">
+                <div style="font-size:13px;font-weight:500;">SBB Travel — Basel</div>
+                <div style="font-size:12px;color:var(--text3);">Travel</div>
+                <div style="font-size:12px;color:var(--text3);">08.05.2026</div>
+                <div style="font-size:13px;font-weight:500;text-align:right;">CHF 84</div>
+                <div style="text-align:center;"><div class="badge g">100%</div></div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 80px 80px 90px;gap:0;border-bottom:.5px solid var(--border);padding:10px 14px;">
+                <div style="font-size:13px;font-weight:500;">Client lunch</div>
+                <div style="font-size:12px;color:var(--text3);">Meals</div>
+                <div style="font-size:12px;color:var(--text3);">03.05.2026</div>
+                <div style="font-size:13px;font-weight:500;text-align:right;">CHF 146</div>
+                <div style="text-align:center;"><div class="badge y">50%</div></div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 80px 80px 90px;gap:0;padding:10px 14px;">
+                <div style="font-size:13px;font-weight:500;">Digitec receipt</div>
+                <div style="font-size:12px;color:var(--warn-d);">Review needed</div>
+                <div style="font-size:12px;color:var(--text3);">01.06.2026</div>
+                <div style="font-size:13px;font-weight:500;text-align:right;">CHF 320</div>
+                <div style="text-align:center;"><div class="badge y">?</div></div>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--card);border-radius:var(--rl);border:.5px solid var(--border);padding:20px;text-align:center;color:var(--text3);font-size:13px;cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <i class="ti ti-upload" style="font-size:20px;display:block;margin-bottom:6px;color:var(--accent);" aria-hidden="true"></i>
+            OCR expense upload flow — Session 2 coming soon
+          </div>
+        </div>
+
+        <div class="screen" id="screen-tax">
+          <div class="page-header">
+            <div><div class="page-title">Tax engine</div><div class="page-sub">Fiscal year 2026 · Zürich · Sole proprietorship</div></div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--accent);background:#F0FBF7;padding:4px 10px;border-radius:var(--r);border:.5px solid #B7E4D0;white-space:nowrap;"><i class="ti ti-refresh" style="font-size:12px;" aria-hidden="true"></i> Updated today</div>
+          </div>
+          <div class="stats">
+            <div class="sc"><div class="sl"><i class="ti ti-trending-up" aria-hidden="true"></i> Revenue YTD</div><div class="sv">CHF 68,400</div><div class="sd" style="color:var(--accent);">+12% vs last year</div></div>
+            <div class="sc"><div class="sl"><i class="ti ti-receipt" aria-hidden="true"></i> Deductible expenses</div><div class="sv">CHF 14,200</div><div class="sd">Net: CHF 54,200</div></div>
+            <div class="sc"><div class="sl"><i class="ti ti-calculator" aria-hidden="true"></i> Total tax estimated</div><div class="sv">CHF 22,100</div><div class="sd">Effective rate ~32%</div></div>
+            <div class="sc dark"><div class="sl"><i class="ti ti-piggy-bank" aria-hidden="true"></i> Monthly reserve</div><div class="sv">CHF 1,842</div><div class="sd" style="color:var(--accent);">6 months remaining</div></div>
+          </div>
+          <div class="two-col">
+            <div class="card">
+              <div class="ch"><div class="ct"><i class="ti ti-math-function" aria-hidden="true"></i> How your tax is calculated · Zürich 2026</div></div>
+              <div class="cb">
+                <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px;display:flex;align-items:center;gap:4px;"><i class="ti ti-circle-number-1" style="font-size:12px;color:var(--accent);" aria-hidden="true"></i> Income base</div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 9px;background:var(--bg);border-radius:var(--r);margin-bottom:3px;"><div style="font-size:12px;">Gross revenue</div><div style="font-size:11px;color:var(--text3);"></div><div style="font-size:12px;font-weight:500;text-align:right;">CHF 68,400</div></div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 9px;background:var(--warn-l);border-radius:var(--r);margin-bottom:3px;opacity:.9;"><div style="font-size:12px;">Business expenses</div><div style="font-size:11px;color:var(--warn-d);">− expenses</div><div style="font-size:12px;font-weight:500;color:var(--warn-d);text-align:right;">− CHF 14,200</div></div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 9px;background:#EAF3DE;border-radius:var(--r);margin-bottom:10px;"><div style="font-size:12px;">Net business income</div><div style="font-size:11px;color:#3B6D11;">= result</div><div style="font-size:12px;font-weight:500;color:#3B6D11;text-align:right;">CHF 54,200</div></div>
+                <div style="height:.5px;background:var(--border);margin-bottom:10px;"></div>
+                <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px;display:flex;align-items:center;gap:4px;"><i class="ti ti-circle-number-2" style="font-size:12px;color:var(--accent);" aria-hidden="true"></i> Social insurance on net income</div>
+                <div style="padding:5px 9px 5px 17px;border-left:2px solid var(--accent);margin-bottom:2px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;"><div style="font-size:11px;color:var(--text2);">AHV (old age)</div><div style="font-size:11px;color:var(--text3);">10.6% × 54,200</div><div style="font-size:12px;font-weight:500;text-align:right;">CHF 5,745</div></div>
+                <div style="padding:5px 9px 5px 17px;border-left:2px solid var(--accent);margin-bottom:2px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;"><div style="font-size:11px;color:var(--text2);">IV (disability)</div><div style="font-size:11px;color:var(--text3);">1.4% × 54,200</div><div style="font-size:12px;font-weight:500;text-align:right;">CHF 759</div></div>
+                <div style="padding:5px 9px 5px 17px;border-left:2px solid var(--accent);margin-bottom:6px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;"><div style="font-size:11px;color:var(--text2);">EO (compensation)</div><div style="font-size:11px;color:var(--text3);">0.5% × 54,200</div><div style="font-size:12px;font-weight:500;text-align:right;">CHF 271</div></div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 9px;background:#EAF3DE;border-radius:var(--r);margin-bottom:3px;"><div style="font-size:12px;">Total social insurance</div><div style="font-size:11px;color:#3B6D11;">AHV+IV+EO</div><div style="font-size:12px;font-weight:500;color:#3B6D11;text-align:right;">CHF 6,775</div></div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 9px;background:var(--warn-l);border-radius:var(--r);margin-bottom:10px;opacity:.9;"><div style="font-size:12px;">AHV deduction (50% deductible)</div><div style="font-size:11px;color:var(--warn-d);">Swiss law</div><div style="font-size:12px;font-weight:500;color:var(--warn-d);text-align:right;">− CHF 2,873</div></div>
+                <div style="height:.5px;background:var(--border);margin-bottom:10px;"></div>
+                <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px;display:flex;align-items:center;gap:4px;"><i class="ti ti-circle-number-3" style="font-size:12px;color:var(--accent);" aria-hidden="true"></i> Income tax on CHF 51,327 taxable</div>
+                <div style="padding:5px 9px 5px 17px;border-left:2px solid var(--accent);margin-bottom:2px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;"><div style="font-size:11px;color:var(--text2);">Federal direct tax</div><div style="font-size:11px;color:var(--text3);">Progressive</div><div style="font-size:12px;font-weight:500;text-align:right;">CHF 3,600</div></div>
+                <div style="padding:5px 9px 5px 17px;border-left:2px solid var(--accent);margin-bottom:2px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;"><div style="font-size:11px;color:var(--text2);">Cantonal tax (ZH)</div><div style="font-size:11px;color:var(--text3);">8.0% × 51,327</div><div style="font-size:12px;font-weight:500;text-align:right;">CHF 4,106</div></div>
+                <div style="padding:5px 9px 5px 17px;border-left:2px solid var(--accent);margin-bottom:6px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;"><div style="font-size:11px;color:var(--text2);">Communal · Zürich city</div><div style="font-size:11px;color:var(--text3);">× 1.19</div><div style="font-size:12px;font-weight:500;text-align:right;">CHF 4,886</div></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:var(--dark);border-radius:var(--r);margin-top:4px;"><div style="font-size:12px;font-weight:500;color:var(--muted);">Total tax burden 2026</div><div style="font-size:15px;font-weight:500;color:#fff;">CHF 22,100</div></div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div class="card">
+                <div class="ch"><div class="ct"><i class="ti ti-piggy-bank" aria-hidden="true"></i> Tax reserve</div></div>
+                <div class="cb">
+                  <div class="reserve" style="margin-bottom:10px;"><div class="rl">Set aside this month</div><div class="rv">CHF 1,842</div><div class="rs">CHF 22,100 ÷ 12 months</div></div>
+                  <div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px;"><span>Already reserved</span><span style="font-weight:500;color:var(--accent);">CHF 12,818 · 58%</span></div><div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden;"><div style="width:58%;height:100%;background:var(--accent);border-radius:3px;"></div></div></div>
+                  <div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px;"><span>Still to reserve</span><span style="font-weight:500;color:var(--warn);">CHF 9,282 · 42%</span></div><div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden;"><div style="width:42%;height:100%;background:var(--warn);border-radius:3px;"></div></div><div style="font-size:10px;color:var(--text3);margin-top:3px;">Across 6 remaining months</div></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="ch"><div class="ct"><i class="ti ti-alert-triangle" style="color:var(--warn);" aria-hidden="true"></i> VAT threshold</div></div>
+                <div class="cb">
+                  <div class="tax-row"><div class="tl">Revenue YTD</div><div class="tv">CHF 68,400</div></div>
+                  <div class="tax-row"><div class="tl">Threshold</div><div class="tv">CHF 100,000</div></div>
+                  <div class="tax-row"><div class="tl">Progress</div><div><div class="badge y">68% — caution</div></div></div>
+                  <div class="tax-row"><div class="tl">Est. crossing</div><div class="tv">Sep 2026</div></div>
+                  <div style="display:flex;align-items:flex-start;gap:6px;padding:8px 10px;background:var(--warn-l);border-radius:var(--r);margin-top:8px;"><i class="ti ti-info-circle" style="font-size:13px;color:var(--warn-d);flex-shrink:0;margin-top:1px;" aria-hidden="true"></i><div style="font-size:11px;color:#633806;line-height:1.5;">You'll cross CHF 100k around September. Registration within 30 days is mandatory. Act in August.</div></div>
+                  <div style="display:flex;gap:6px;margin-top:8px;"><div style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:var(--r);background:var(--accent);color:#fff;font-size:11px;font-weight:500;cursor:pointer;" onclick="nav('ai')"><i class="ti ti-message" style="font-size:12px;" aria-hidden="true"></i> Ask accountant</div></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="ch"><div class="ct"><i class="ti ti-adjustments" aria-hidden="true"></i> Rates applied</div><div style="font-size:10px;color:var(--text3);">ZH · 2026</div></div>
+                <div class="cb"><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;">
+                  <div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg);border-radius:var(--r);"><div style="font-size:11px;color:var(--text2);">AHV</div><div style="font-size:11px;font-weight:500;">10.6%</div></div>
+                  <div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg);border-radius:var(--r);"><div style="font-size:11px;color:var(--text2);">IV</div><div style="font-size:11px;font-weight:500;">1.4%</div></div>
+                  <div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg);border-radius:var(--r);"><div style="font-size:11px;color:var(--text2);">EO</div><div style="font-size:11px;font-weight:500;">0.5%</div></div>
+                  <div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg);border-radius:var(--r);"><div style="font-size:11px;color:var(--text2);">Cantonal ZH</div><div style="font-size:11px;font-weight:500;">8.0%</div></div>
+                  <div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg);border-radius:var(--r);"><div style="font-size:11px;color:var(--text2);">Communal</div><div style="font-size:11px;font-weight:500;">× 1.19</div></div>
+                  <div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg);border-radius:var(--r);"><div style="font-size:11px;color:var(--text2);">VAT std.</div><div style="font-size:11px;font-weight:500;">8.1%</div></div>
+                </div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-ai">
+          <div class="page-header"><div><div class="page-title">Ask Settlo</div><div class="page-sub">AI assistant · Swiss tax & business questions</div></div></div>
+          <div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:12px;flex:1;min-height:0;">
+            <div class="card" style="overflow-y:auto;">
+              <div class="ch"><div class="ct"><i class="ti ti-message" aria-hidden="true"></i> Conversations</div><div style="display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:var(--r);background:var(--accent);color:#fff;font-size:11px;font-weight:500;cursor:pointer;"><i class="ti ti-plus" style="font-size:11px;" aria-hidden="true"></i> New</div></div>
+              <div style="padding:0;">
+                <div style="padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);background:#F0FBF7;" onclick="selectConv(0)">
+                  <div style="font-size:12px;font-weight:500;color:var(--accent-d);">VAT registration timing</div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:2px;">Just now</div>
+                </div>
+                <div style="padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);" onclick="selectConv(1)">
+                  <div style="font-size:12px;font-weight:500;color:var(--text);">AHV contributions 2026</div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:2px;">Yesterday</div>
+                </div>
+                <div style="padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);" onclick="selectConv(2)">
+                  <div style="font-size:12px;font-weight:500;color:var(--text);">Home office deduction</div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:2px;">2 days ago</div>
+                </div>
+                <div style="padding:9px 12px;cursor:pointer;" onclick="selectConv(3)">
+                  <div style="font-size:12px;font-weight:500;color:var(--text);">Client lunch deductibility</div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:2px;">12 May</div>
+                </div>
+              </div>
+            </div>
+            <div class="card" style="display:flex;flex-direction:column;overflow:hidden;">
+              <div style="padding:11px 14px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+                <div><div style="font-size:13px;font-weight:500;" id="conv-title">VAT registration timing</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">Zürich · CHF 68,400 YTD · Not VAT registered</div></div>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--bg);" id="chat-messages"></div>
+              <div style="padding:10px 14px;border-top:.5px solid var(--border);background:var(--card);flex-shrink:0;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="quick-chips"></div>
+                <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--rl);border:.5px solid var(--border2);padding:8px 12px;">
+                  <input id="chat-input" type="text" placeholder="Ask anything about your Swiss business..." style="flex:1;border:none;background:transparent;font-size:13px;color:var(--text);font-family:inherit;outline:none;" onkeydown="if(event.key==='Enter')sendMsg()">
+                  <div onclick="sendMsg()" style="width:30px;height:30px;border-radius:var(--r);background:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;"><i class="ti ti-send" style="font-size:14px;color:#fff;" aria-hidden="true"></i></div>
+                </div>
+                <div style="font-size:10px;color:var(--text3);margin-top:6px;text-align:center;">AI answers instantly · Verify with accountant available on Pro plan</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  step: 1,
+  data: { firstName:'Anna', lastName:'Müller', email:'anna.mueller@gmail.com', phone:'+41 79 123 45 67', biz:'Anna Müller Consulting', canton:'ZH', plan:'Pro', lang:'EN' },
+  currentScreen: 'dashboard',
+  messages: [],
+  loadingAI: false
+};
+
+const steps = [
+  { id:1, title:'Create account', sub:'Email & password' },
+  { id:2, title:'Business profile', sub:'Name, address, logo' },
+  { id:3, title:'Banking', sub:'IBAN, defaults' },
+  { id:4, title:'Tax profile', sub:'Canton, personal' },
+  { id:5, title:'Choose plan', sub:'14 days free' }
+];
+
+const cantons = ['Zürich (ZH)','Bern (BE)','Luzern (LU)','Zug (ZG)','Geneva (GE)','Basel-S. (BS)','Vaud (VD)','Aargau (AG)'];
+
+function renderStepNav(cur) {
+  const items = document.querySelectorAll('.si');
+  const conns = document.querySelectorAll('.sc');
+  const segs = document.querySelectorAll('.ob-seg');
+  steps.forEach((s,i) => {
+    const el = items[i];
+    const nn = el.querySelector('.sn');
+    const status = cur > s.id ? 'done' : cur === s.id ? 'active' : 'todo';
+    el.className = 'si ' + status;
+    if(status==='done') nn.innerHTML = '<i class="ti ti-check" style="font-size:10px;" aria-hidden="true"></i>';
+    else nn.textContent = s.id;
+    const st = el.querySelector('.st');
+    const ss = el.querySelector('.ss');
+    if(st) st.textContent = s.title;
+    if(ss) ss.textContent = s.sub;
+    if(segs[i]) { segs[i].className = 'ob-seg ' + (cur > s.id ? 'done' : cur === s.id ? 'cur' : 'todo'); }
+  });
+}
+
+function renderForm(step) {
+  const f = document.getElementById('ob-form');
+  let html = '';
+  if(step===1) {
+    html = `<div class="ob-h">Welcome to Settlo</div><div class="ob-s">Create your account. No credit card required — 14 days free on any plan.</div>
+    <div class="g2"><div class="fg"><div class="fl">First name</div><input class="fi" value="${state.data.firstName}" oninput="state.data.firstName=this.value"></div><div class="fg"><div class="fl">Last name</div><input class="fi" value="${state.data.lastName}" oninput="state.data.lastName=this.value"></div></div>
+    <div class="g2"><div class="fg"><div class="fl">Email</div><input class="fi" type="email" value="${state.data.email}" oninput="state.data.email=this.value"></div><div class="fg"><div class="fl">Phone number</div><input class="fi" type="tel" value="${state.data.phone}" oninput="state.data.phone=this.value"><div class="fh">For account security and accountant contact</div></div></div>
+    <div class="g2"><div class="fg"><div class="fl">Password</div><input class="fi" type="password" value="password123"></div><div class="fg"><div class="fl">Preferred language</div><select class="fs" onchange="state.data.lang=this.value"><option>English</option><option>Deutsch</option><option>Français</option><option>Italiano</option></select></div></div>
+    <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:4px;">By signing up you agree to our <span style="color:var(--accent);">Terms</span> and <span style="color:var(--accent);">Privacy Policy</span>.</div>`;
+  } else if(step===2) {
+    html = `<div class="ob-h">Your business profile</div><div class="ob-s">This appears on your invoices. Editable anytime in Settings.</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:.5px solid var(--border);margin-bottom:10px;">
+      <div style="width:44px;height:44px;border-radius:var(--r);background:var(--mid);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:#fff;flex-shrink:0;">AM</div>
+      <div style="flex:1;"><div style="font-size:12px;font-weight:500;color:var(--text);">Business logo</div><div style="font-size:11px;color:var(--text3);">PNG or JPG, min 200×200px</div></div>
+      <div style="padding:5px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--card);font-size:11px;font-weight:500;cursor:pointer;"><i class="ti ti-upload" style="font-size:12px;" aria-hidden="true"></i> Upload</div>
+    </div>
+    <div class="g2"><div class="fg"><div class="fl">Business name</div><input class="fi" value="${state.data.biz}" oninput="state.data.biz=this.value"></div><div class="fg"><div class="fl">Business type</div><select class="fs"><option>Sole proprietorship</option><option disabled>GmbH (coming soon)</option><option disabled>AG (coming soon)</option></select></div></div>
+    <div class="g2"><div class="fg"><div class="fl">Street & number</div><input class="fi" value="Dammstrasse 16"></div><div class="fg"><div class="fl">City</div><input class="fi" value="Zug"></div></div>
+    <div class="g3"><div class="fg"><div class="fl">Postal code</div><input class="fi" value="6300"></div><div class="fg"><div class="fl">Country</div><select class="fs"><option>Switzerland</option></select></div><div class="fg"><div class="fl">UID (optional)</div><input class="fi" placeholder="CHE-xxx.xxx.xxx"><div class="fh">Unternehmens-ID</div></div></div>`;
+  } else if(step===3) {
+    html = `<div class="ob-h">Banking & payment defaults</div><div class="ob-s">Set up once — used on every invoice automatically.</div>
+    <div style="display:flex;align-items:flex-start;gap:7px;padding:9px 11px;background:#F0FBF7;border-radius:var(--r);border:.5px solid #B7E4D0;margin-bottom:10px;"><i class="ti ti-info-circle" style="font-size:14px;color:var(--accent-d);flex-shrink:0;margin-top:1px;" aria-hidden="true"></i><div style="font-size:12px;color:var(--accent-d);">Your IBAN generates the Swiss QR-bill payment slip on every invoice automatically.</div></div>
+    <div class="fg" style="margin-bottom:10px;"><div class="fl">IBAN</div><div style="display:flex;align-items:center;gap:8px;"><input class="fi" value="CH02 0900 0000 1638 5793 1" style="font-family:monospace;flex:1;"><div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);white-space:nowrap;"><i class="ti ti-circle-check" style="font-size:14px;" aria-hidden="true"></i> Valid</div></div></div>
+    <div class="g2"><div class="fg"><div class="fl">Default payment terms</div><select class="fs"><option>30 days net</option><option selected>15 days net</option><option>60 days net</option></select><div class="fh">Overridable per invoice</div></div><div class="fg"><div class="fl">Default currency</div><select class="fs"><option>CHF — Swiss Franc</option><option>EUR</option></select></div></div>
+    <div class="g2"><div class="fg"><div class="fl">Invoice language</div><div class="lt-row"><div class="lt active">EN</div><div class="lt" onclick="this.parentNode.querySelectorAll('.lt').forEach(x=>x.classList.remove('active'));this.classList.add('active')">DE</div><div class="lt" onclick="this.parentNode.querySelectorAll('.lt').forEach(x=>x.classList.remove('active'));this.classList.add('active')">FR</div><div class="lt" onclick="this.parentNode.querySelectorAll('.lt').forEach(x=>x.classList.remove('active'));this.classList.add('active')">IT</div></div></div><div class="fg"><div class="fl">Invoice number prefix</div><input class="fi" value="INV-"><div class="fh">e.g. INV-2026-0001</div></div></div>`;
+  } else if(step===4) {
+    const cGrid = cantons.map(c => `<div class="cp${c.includes('ZH')?' sel':''}" onclick="this.parentNode.querySelectorAll('.cp').forEach(x=>x.classList.remove('sel'));this.classList.add('sel');state.data.canton=this.textContent.slice(-3,- 1)">${c}</div>`).join('');
+    html = `<div class="ob-h">Tax profile</div><div class="ob-s">Used to calculate your income tax, AHV/IV/EO and VAT threshold accurately.</div>
+    <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:0 0 7px;display:flex;align-items:center;gap:6px;">Canton & VAT</div>
+    <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:7px;">Which canton are you based in?</div>
+    <div class="canton-grid">${cGrid}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">+ 18 more cantons available</div>
+    <div class="g2"><div class="fg"><div class="fl">VAT status</div><select class="fs"><option selected>Not registered (under CHF 100k)</option><option>Registered (voluntary)</option><option>Registered (mandatory)</option></select><div class="fh">Settlo alerts you when approaching threshold</div></div><div class="fg"><div class="fl">Est. annual revenue</div><input class="fi" value="CHF 120,000"><div class="fh">Updates automatically from invoices</div></div></div>
+    <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:10px 0 7px;display:flex;align-items:center;gap:6px;">Personal details <span style="font-size:10px;font-weight:500;background:#EEF0FB;color:#3949AB;padding:2px 6px;border-radius:4px;text-transform:none;letter-spacing:0;">Sole proprietorship only</span></div>
+    <div class="g2"><div class="fg"><div class="fl">Marital status</div><select class="fs"><option>Single (Tariff A)</option><option>Married (Tariff B)</option><option>Single parent (Tariff H)</option></select></div><div class="fg"><div class="fl">Dependent children</div><select class="fs"><option selected>0 children</option><option>1 child</option><option>2 children</option><option>3+ children</option></select><div class="fh">CHF 6,500–9,000 deduction each</div></div></div>
+    <div class="g2"><div class="fg"><div class="fl">Residence permit</div><select class="fs"><option>Swiss citizen / C permit</option><option>B permit (Quellensteuer)</option></select></div><div class="fg"><div class="fl">Pillar 3a / year</div><input class="fi" value="CHF 7,056"><div class="fh">Max CHF 35,280 · Fully deductible</div></div></div>`;
+  } else if(step===5) {
+    html = `<div class="ob-h">Choose your plan</div><div class="ob-s">14 days free on any plan. No credit card required. Cancel anytime.</div>
+    <div class="plan-grid">
+      <div class="pc" onclick="selectPlan(this,'Solo')"><div class="pc-name">Solo</div><div class="pc-price">CHF 19 <span>/month</span></div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> Swiss QR invoicing</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> Expense tracking + OCR</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> AI assistant</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> VAT threshold tracker</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> VAT declaration (form 300)</div><div class="pf dim"><i class="ti ti-x" aria-hidden="true"></i> Income tax engine</div><div class="pf dim"><i class="ti ti-x" aria-hidden="true"></i> Human accountant access</div></div>
+      <div class="pc sel" onclick="selectPlan(this,'Pro')"><div class="pc-badge">Most popular</div><div class="pc-name">Pro</div><div class="pc-price">CHF 49 <span>/month</span></div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> Everything in Solo</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> Canton-aware tax engine</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> AHV / IV / EO calculation</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> 1 accountant answer/month</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> Year-end export</div></div>
+      <div class="pc" onclick="selectPlan(this,'Confidence')"><div class="pc-name">Confidence</div><div class="pc-price">CHF 99 <span>/month</span></div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> Everything in Pro</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> 3 accountant answers/month</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> Annual tax return review</div><div class="pf"><i class="ti ti-check" aria-hidden="true"></i> Priority accountant response</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);text-align:center;">No credit card required · Cancel anytime</div>`;
+  }
+
+  const isFirst = step === 1;
+  const isLast = step === 5;
+  html += `<div class="ob-actions"><div>${isFirst ? '' : `<button class="btn-back" onclick="goStep(${step-1})"><i class="ti ti-arrow-left" style="font-size:13px;" aria-hidden="true"></i> Back</button>`}</div><div style="display:flex;align-items:center;gap:10px;"><span class="ob-step-ind">Step ${step} of 5</span><button class="btn-next" onclick="${isLast?'finishOnboarding()':'goStep('+( step+1)+')'}"><span>${isLast?'Start free trial':'Continue'}</span><i class="ti ti-arrow-right" style="font-size:13px;" aria-hidden="true"></i></button></div></div>`;
+
+  f.innerHTML = html;
+}
+
+function selectPlan(el, plan) {
+  document.querySelectorAll('.pc').forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel');
+  state.data.plan = plan;
+}
+
+function goStep(n) {
+  state.step = n;
+  renderStepNav(n);
+  renderForm(n);
+}
+
+function finishOnboarding() {
+  document.getElementById('onboarding').style.display = 'none';
+  const shell = document.getElementById('app-shell');
+  shell.style.display = 'grid';
+  document.getElementById('main-body').style.gridTemplateColumns = '168px minmax(0,1fr)';
+  document.getElementById('topnav').style.display = 'flex';
+  document.getElementById('user-avatar').style.display = 'flex';
+  document.getElementById('biz-name').textContent = state.data.biz || 'Anna Müller Consulting';
+  document.getElementById('biz-sub').textContent = 'Sole propr. · ' + (state.data.canton || 'ZH');
+  document.getElementById('sf-name').textContent = (state.data.firstName||'Anna') + ' ' + (state.data.lastName||'Müller');
+  document.getElementById('sf-plan').textContent = (state.data.plan||'Pro') + ' · trial';
+  document.getElementById('dash-greeting').textContent = 'Good morning, ' + (state.data.firstName||'Anna') + '.';
+  initChat();
+  nav('dashboard');
+}
+
+function nav(screen) {
+  state.currentScreen = screen;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + screen);
+  if(el) el.classList.add('active');
+  ['dashboard','invoices','expenses','tax','ai'].forEach(s => {
+    const nb = document.getElementById('nav-' + s);
+    const sb = document.getElementById('sb-' + s);
+    if(nb) nb.classList.toggle('active', s === screen);
+    if(sb) sb.classList.toggle('active', s === screen);
+  });
+}
+
+const conversations = [
+  { title:'VAT registration timing', msgs:[
+    {role:'user',text:'Do I need to register for VAT this year?'},
+    {role:'ai',text:'Based on your current revenue of CHF 68,400, you\'re at 68% of the mandatory VAT registration threshold of CHF 100,000.\n\nAt your current pace you\'ll cross it around September 2026. Once you exceed CHF 100,000, registration is mandatory within 30 days.\n\nMy recommendation: register voluntarily in August to avoid penalties and cash flow surprises.',conf:'High confidence · Swiss VAT Act Art. 10'}
+  ]},
+  { title:'AHV contributions 2026', msgs:[
+    {role:'user',text:'How is AHV calculated for sole proprietors?'},
+    {role:'ai',text:'For self-employed individuals in Switzerland, AHV is calculated on your net business income at a rate of 10.6%. You also pay IV at 1.4% and EO at 0.5%, bringing the total social insurance contribution to 12.5%.\n\nImportant: you can deduct 50% of your AHV contributions from your taxable income — reducing your income tax base.',conf:'High confidence'}
+  ]},
+  { title:'Home office deduction', msgs:[
+    {role:'user',text:'Can I deduct my home office expenses?'},
+    {role:'ai',text:'Yes, as a self-employed person you can deduct home office costs. You have two options:\n\n1. Flat rate: deduct a proportional share based on the room\'s floor area relative to your total apartment size.\n2. Actual costs: document exact expenses (rent, utilities, internet) and deduct the proportional share.\n\nFor Swiss tax, the home office must be your primary work location.',conf:'High confidence'}
+  ]},
+  { title:'Client lunch deductibility', msgs:[
+    {role:'user',text:'Is a client lunch deductible?'},
+    {role:'ai',text:'Business meals with clients are 50% deductible in Switzerland under direct federal tax rules. Some cantons may have different rules, but 50% is the standard safe deduction.\n\nYou should keep the receipt and note who was present and the business purpose. For amounts over CHF 50, documentation is more important.',conf:'High confidence'}
+  ]}
+];
+
+const quickChips = [
+  'Do I need to register for VAT?',
+  'How is AHV calculated?',
+  'Can I deduct home office costs?',
+  'What is Pillar 3a maximum?',
+  'How does the communal tax multiplier work?'
+];
+
+let currentConv = 0;
+
+function initChat() {
+  selectConv(0);
+}
+
+function selectConv(idx) {
+  currentConv = idx;
+  const conv = conversations[idx];
+  document.getElementById('conv-title').textContent = conv.title;
+  renderMessages(conv.msgs);
+  renderChips();
+}
+
+function renderMessages(msgs) {
+  const container = document.getElementById('chat-messages');
+  if(!container) return;
+  container.innerHTML = msgs.map(m => {
+    if(m.role==='user') return `<div style="display:flex;justify-content:flex-end;"><div style="background:var(--mid);color:#fff;padding:9px 13px;border-radius:12px 12px 2px 12px;font-size:13px;line-height:1.55;max-width:80%;">${m.text}</div></div>`;
+    const lines = m.text.split('\n').filter(l=>l.trim()).map(l=>`<p style="margin-bottom:6px;">${l}</p>`).join('');
+    return `<div style="display:flex;gap:9px;align-items:flex-start;">
+      <div style="width:26px;height:26px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#fff;flex-shrink:0;margin-top:2px;">S</div>
+      <div style="flex:1;min-width:0;">
+        <div style="background:var(--card);border:.5px solid var(--border);padding:11px 13px;border-radius:2px 12px 12px 12px;font-size:13px;line-height:1.6;color:var(--text);margin-bottom:6px;">${lines}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+          <div style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--accent);"><i class="ti ti-circle-check" style="font-size:12px;" aria-hidden="true"></i> ${m.conf||'Answered'}</div>
+          <div style="font-size:11px;font-weight:500;background:var(--warn-l);color:var(--warn-d);border:.5px solid #FAC775;padding:4px 9px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:4px;"><i class="ti ti-user-check" style="font-size:11px;" aria-hidden="true"></i> Verify with accountant</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function renderChips() {
+  const el = document.getElementById('quick-chips');
+  if(!el) return;
+  el.innerHTML = quickChips.slice(0,3).map(q =>
+    `<div style="font-size:11px;padding:4px 10px;border-radius:20px;border:.5px solid var(--border2);color:var(--text2);cursor:pointer;background:var(--card);" onclick="askQuestion('${q}')">${q}</div>`
+  ).join('');
+}
+
+async function sendMsg() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if(!text || state.loadingAI) return;
+  input.value = '';
+  askQuestion(text);
+}
+
+async function askQuestion(text) {
+  if(state.loadingAI) return;
+  state.loadingAI = true;
+  const conv = conversations[currentConv];
+  conv.msgs.push({role:'user', text});
+  renderMessages(conv.msgs);
+
+  conv.msgs.push({role:'ai', text:'Thinking...', conf:'...', loading:true});
+  renderMessages(conv.msgs);
+
+  try {
+    const systemPrompt = `You are Settlo AI, an expert Swiss tax and business assistant for self-employed professionals. The user is Anna Müller, a sole proprietor based in Zürich (ZH) canton. Her revenue YTD is CHF 68,400, she is NOT registered for VAT, her estimated annual revenue is CHF 120,000. She pays AHV, IV, EO as a self-employed person.
+
+Answer questions about Swiss taxes, AHV/IV/EO, VAT, deductions, and business administration. Be specific and practical. Reference relevant Swiss law when appropriate. Keep answers concise but complete. Always mention if something varies by canton. Never give advice that could be harmful — if complex, suggest verifying with a certified Swiss accountant.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: conv.msgs
+          .filter(m => !m.loading)
+          .slice(0,-1)
+          .concat([{role:'user', content: text}])
+          .map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text }))
+      })
+    });
+    const data = await response.json();
+    const answer = data.content?.[0]?.text || 'Sorry, I could not process that question. Please try again.';
+    conv.msgs[conv.msgs.length-1] = {role:'ai', text: answer, conf:'Based on Swiss tax law · Verify with accountant for your specific situation'};
+  } catch(e) {
+    conv.msgs[conv.msgs.length-1] = {role:'ai', text:'I could not connect right now. Please check your connection and try again.', conf:'Connection error'};
+  }
+
+  state.loadingAI = false;
+  renderMessages(conv.msgs);
+}
+
+goStep(1);
+</script>

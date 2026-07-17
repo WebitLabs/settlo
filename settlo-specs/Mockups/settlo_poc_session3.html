@@ -1,0 +1,591 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --dark:#0D1F2D;--mid:#1A3344;--light:#2D4A5A;--muted:#7B9BAD;
+  --accent:#00A878;--accent-l:#D4F0E8;--accent-d:#0F6E56;--accent-dk:#085041;
+  --warn:#F59E0B;--warn-l:#FEF3C7;--warn-d:#854F0B;
+  --danger:#E24B4A;--danger-l:#FCEBEB;--danger-d:#791F1F;
+  --info:#3949AB;--info-l:#EEF0FB;
+  --bg:#F0F2F5;--card:#fff;--border:#E2E8F0;--border2:#CBD5E1;
+  --text:#0D1F2D;--text2:#4A5568;--text3:#9CA3AF;
+  --r:8px;--rl:12px;
+}
+.app{display:flex;flex-direction:column;height:680px;border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--border);}
+.topbar{background:var(--dark);height:48px;display:flex;align-items:center;padding:0 16px;flex-shrink:0;}
+.t-logo{display:flex;align-items:center;gap:7px;min-width:160px;}
+.t-sq{width:24px;height:24px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#fff;}
+.t-txt{font-size:14px;font-weight:500;color:#fff;}
+.t-nav{display:flex;gap:2px;flex:1;}
+.t-item{padding:5px 11px;border-radius:var(--r);font-size:12px;color:var(--muted);cursor:pointer;}
+.t-item.active{background:var(--mid);color:#fff;}
+.t-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.t-avatar{width:26px;height:26px;border-radius:50%;background:var(--mid);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);}
+.body{display:grid;grid-template-columns:168px minmax(0,1fr);flex:1;overflow:hidden;}
+.sidebar{background:#0A1B28;padding:10px 0;display:flex;flex-direction:column;}
+.e-pill{margin:0 8px 12px;background:var(--mid);border-radius:var(--r);padding:7px 9px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:4px;}
+.e-name{font-size:11px;font-weight:500;color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.e-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+.ns{font-size:9px;font-weight:500;color:#2D4A5A;padding:8px 12px 3px;text-transform:uppercase;letter-spacing:.07em;}
+.ni{display:flex;align-items:center;gap:7px;padding:7px 12px;font-size:12px;color:var(--muted);cursor:pointer;}
+.ni.active{background:var(--mid);color:#fff;}
+.ni i{font-size:14px;flex-shrink:0;}
+.nb{margin-left:auto;background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;}
+.nb.pending{background:var(--warn);}
+.sf{margin-top:auto;padding:10px 12px 12px;border-top:0.5px solid var(--mid);display:flex;align-items:center;gap:7px;}
+.sa{width:26px;height:26px;border-radius:50%;background:var(--mid);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);flex-shrink:0;}
+
+.chat-wrap{display:flex;flex:1;overflow:hidden;}
+
+.conv-list{width:220px;flex-shrink:0;background:var(--card);border-right:.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.conv-head{padding:12px 12px 9px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.conv-head-title{font-size:13px;font-weight:500;}
+.new-btn{display:flex;align-items:center;gap:3px;padding:4px 9px;border-radius:var(--r);font-size:11px;font-weight:500;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:inherit;}
+.conv-search{padding:8px 10px;border-bottom:.5px solid var(--border);}
+.conv-search input{width:100%;padding:6px 9px 6px 28px;border-radius:var(--r);border:.5px solid var(--border);background:var(--bg);font-size:12px;color:var(--text);font-family:inherit;}
+.conv-search-wrap{position:relative;}
+.conv-search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text3);}
+.conv-items{flex:1;overflow-y:auto;}
+.conv-section{font-size:10px;font-weight:500;color:var(--text3);padding:8px 12px 3px;text-transform:uppercase;letter-spacing:.06em;}
+.conv-item{padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);}
+.conv-item:last-child{border-bottom:none;}
+.conv-item.active{background:#F0FBF7;}
+.conv-item-title{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;}
+.conv-item.active .conv-item-title{color:var(--accent-d);}
+.conv-item-preview{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.conv-item-date{font-size:10px;color:var(--text3);margin-top:2px;}
+.cbadge{font-size:9px;font-weight:500;padding:1px 5px;border-radius:3px;flex-shrink:0;}
+.cbadge.answered{background:var(--accent-l);color:var(--accent-d);}
+.cbadge.pending{background:var(--warn-l);color:var(--warn-d);}
+.cbadge.new{background:var(--info-l);color:var(--info);}
+
+.chat-panel{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+.chat-head{padding:11px 16px;border-bottom:.5px solid var(--border);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.chat-head-left{min-width:0;}
+.chat-head-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.chat-head-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.ctx-pills{display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;}
+.ctx-pill{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;border:.5px solid var(--border);font-size:11px;color:var(--text2);background:var(--bg);white-space:nowrap;}
+.ctx-pill i{font-size:12px;color:var(--accent);}
+
+.messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--bg);}
+
+.msg-user{display:flex;justify-content:flex-end;}
+.msg-user-bubble{background:var(--mid);color:#fff;padding:9px 13px;border-radius:12px 12px 2px 12px;font-size:13px;line-height:1.55;max-width:80%;}
+
+.msg-ai{display:flex;gap:9px;align-items:flex-start;}
+.ai-av{width:26px;height:26px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#fff;flex-shrink:0;margin-top:2px;}
+.ai-av.accountant{background:var(--mid);}
+.msg-ai-content{flex:1;min-width:0;}
+.msg-ai-bubble{background:var(--card);border:.5px solid var(--border);padding:11px 13px;border-radius:2px 12px 12px 12px;font-size:13px;line-height:1.6;color:var(--text);margin-bottom:7px;}
+.msg-ai-bubble p{margin-bottom:7px;}
+.msg-ai-bubble p:last-child{margin-bottom:0;}
+.msg-ai-bubble strong{font-weight:500;}
+.msg-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+.msg-conf{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--accent);}
+.msg-conf i{font-size:12px;}
+.msg-conf.low{color:var(--warn-d);}
+.msg-verify{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;background:var(--warn-l);color:var(--warn-d);border:.5px solid #FAC775;padding:4px 9px;border-radius:var(--r);cursor:pointer;}
+.msg-verify:hover{background:#FEF0C0;}
+
+.esc-pending{background:var(--card);border:1.5px solid var(--warn);border-radius:var(--rl);overflow:hidden;margin-bottom:0;}
+.esc-pending-head{background:var(--warn-l);padding:9px 13px;display:flex;align-items:center;gap:7px;border-bottom:.5px solid #FAC775;}
+.esc-answered{background:var(--card);border:1.5px solid var(--accent);border-radius:var(--rl);overflow:hidden;}
+.esc-answered-head{background:#F0FBF7;padding:9px 13px;display:flex;align-items:center;gap:7px;border-bottom:.5px solid #B7E4D0;}
+.esc-badge{font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;margin-left:auto;flex-shrink:0;}
+.esc-badge.answered{background:var(--accent);color:#fff;}
+.esc-badge.pending{background:var(--warn);color:#fff;}
+.esc-body{padding:11px 13px;}
+.esc-q{font-size:11px;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+.esc-a{font-size:13px;color:var(--text);line-height:1.6;margin-bottom:10px;}
+.esc-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+.esc-who{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);}
+.esc-who-av{width:20px;height:20px;border-radius:50%;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:500;color:var(--accent-d);}
+.esc-resolve{font-size:11px;color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:3px;}
+
+.typing-indicator{display:flex;align-items:center;gap:4px;padding:10px 13px;}
+.typing-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 1.2s ease-in-out infinite;}
+.typing-dot:nth-child(2){animation-delay:.2s;}
+.typing-dot:nth-child(3){animation-delay:.4s;}
+@keyframes pulse{0%,80%,100%{opacity:.3;transform:scale(.8);}40%{opacity:1;transform:scale(1);}}
+
+.sug-chips{display:flex;flex-wrap:wrap;gap:5px;padding:8px 14px;background:var(--bg);border-top:.5px solid var(--border);}
+.chip{font-size:11px;padding:4px 10px;border-radius:20px;border:.5px solid var(--border2);color:var(--text2);cursor:pointer;background:var(--card);white-space:nowrap;}
+.chip:hover{border-color:var(--accent);color:var(--accent);}
+
+.chat-input-wrap{padding:10px 14px;border-top:.5px solid var(--border);background:var(--card);flex-shrink:0;}
+.chat-input-row{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--rl);border:.5px solid var(--border2);padding:8px 12px;}
+.chat-input{flex:1;border:none;background:transparent;font-size:13px;color:var(--text);font-family:inherit;outline:none;}
+.chat-attach{font-size:17px;color:var(--text3);cursor:pointer;}
+.send-btn{width:30px;height:30px;border-radius:var(--r);background:var(--accent);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.send-btn:disabled{background:var(--bg);cursor:not-allowed;}
+.send-btn i{font-size:14px;color:#fff;}
+.chat-hint{font-size:10px;color:var(--text3);margin-top:6px;text-align:center;}
+
+.accountant-panel{width:240px;flex-shrink:0;border-left:.5px solid var(--border);background:var(--card);display:flex;flex-direction:column;overflow:hidden;}
+.ap-head{padding:12px 14px 9px;border-bottom:.5px solid var(--border);}
+.ap-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px;}
+.ap-sub{font-size:11px;color:var(--text3);}
+.ap-card{padding:12px 14px;border-bottom:.5px solid var(--border);}
+.ap-accountant{display:flex;align-items:center;gap:9px;}
+.ap-av{width:36px;height:36px;border-radius:50%;background:var(--mid);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--muted);flex-shrink:0;}
+.ap-name{font-size:13px;font-weight:500;}
+.ap-role{font-size:11px;color:var(--text3);margin-top:1px;}
+.ap-status{display:flex;align-items:center;gap:4px;font-size:11px;margin-top:6px;}
+.ap-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+.ap-quota{padding:12px 14px;border-bottom:.5px solid var(--border);}
+.ap-quota-title{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:6px;}
+.ap-quota-bar{height:5px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:4px;}
+.ap-quota-fill{height:100%;background:var(--accent);border-radius:3px;}
+.ap-quota-sub{font-size:10px;color:var(--text3);}
+.ap-escalations{padding:12px 14px;flex:1;overflow-y:auto;}
+.ap-esc-title{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:8px;}
+.ap-esc-item{padding:8px 10px;border-radius:var(--r);border:.5px solid var(--border);margin-bottom:6px;cursor:pointer;}
+.ap-esc-item:hover{border-color:var(--accent);}
+.ap-esc-item.pending{border-color:var(--warn);background:var(--warn-l);}
+.ap-esc-item.answered{border-color:var(--accent);background:var(--accent-l);}
+.ap-esc-q{font-size:11px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;}
+.ap-esc-meta{font-size:10px;color:var(--text3);}
+</style>
+
+<h2 class="sr-only">Settlo POC Session 3 — AI assistant with real Claude API and accountant escalation</h2>
+
+<div class="app">
+  <div class="topbar">
+    <div class="t-logo"><div class="t-sq">S</div><div class="t-txt">Settlo</div></div>
+    <div class="t-nav">
+      <div class="t-item" onclick="stubNav('dashboard')">Dashboard</div>
+      <div class="t-item" onclick="stubNav('invoices')">Invoices</div>
+      <div class="t-item" onclick="stubNav('expenses')">Expenses</div>
+      <div class="t-item" onclick="stubNav('tax')">Tax engine</div>
+      <div class="t-item active">Ask Settlo</div>
+    </div>
+    <div class="t-right">
+      <i class="ti ti-bell" style="font-size:16px;color:#7B9BAD;" aria-hidden="true"></i>
+      <div class="t-avatar">AM</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="sidebar">
+      <div class="e-pill"><div style="min-width:0;"><div class="e-name">Anna Müller Consulting</div><div class="e-sub">Sole propr. · Zürich</div></div><i class="ti ti-selector" style="color:#7B9BAD;font-size:12px;flex-shrink:0;" aria-hidden="true"></i></div>
+      <div class="ns">Overview</div>
+      <div class="ni" onclick="stubNav('dashboard')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Dashboard</div>
+      <div class="ni" onclick="stubNav('invoices')"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoices <span class="nb">2</span></div>
+      <div class="ni" onclick="stubNav('expenses')"><i class="ti ti-receipt" aria-hidden="true"></i> Expenses</div>
+      <div class="ns">Finance</div>
+      <div class="ni" onclick="stubNav('tax')"><i class="ti ti-chart-bar" aria-hidden="true"></i> Tax engine</div>
+      <div class="ni"><i class="ti ti-building-bank" aria-hidden="true"></i> Bank accounts</div>
+      <div class="ns">Support</div>
+      <div class="ni active"><i class="ti ti-message" aria-hidden="true"></i> Ask Settlo <span class="nb" id="ai-badge">1</span></div>
+      <div class="ni" onclick="showAccountantPanel()"><i class="ti ti-users" aria-hidden="true"></i> My accountant</div>
+      <div class="ni"><i class="ti ti-settings" aria-hidden="true"></i> Settings</div>
+      <div class="sf"><div class="sa">AM</div><div style="min-width:0;"><div style="font-size:11px;font-weight:500;color:#fff;">Anna Müller</div><div style="font-size:10px;color:#7B9BAD;">Pro · trial</div></div></div>
+    </div>
+
+    <div class="chat-wrap">
+
+      <div class="conv-list">
+        <div class="conv-head">
+          <div class="conv-head-title">Ask Settlo</div>
+          <button class="new-btn" onclick="newConversation()"><i class="ti ti-plus" style="font-size:11px;" aria-hidden="true"></i> New</button>
+        </div>
+        <div class="conv-search">
+          <div class="conv-search-wrap">
+            <i class="ti ti-search conv-search-icon" aria-hidden="true"></i>
+            <input placeholder="Search conversations..." oninput="filterConvs(this.value)">
+          </div>
+        </div>
+        <div class="conv-items" id="conv-list"></div>
+      </div>
+
+      <div class="chat-panel">
+        <div class="chat-head">
+          <div class="chat-head-left">
+            <div class="chat-head-title" id="chat-title">VAT registration timing</div>
+            <div class="chat-head-sub" id="chat-sub">Zürich · CHF 68,400 YTD · Not VAT registered</div>
+          </div>
+          <div class="ctx-pills">
+            <div class="ctx-pill"><i class="ti ti-map-pin" aria-hidden="true"></i> Zürich</div>
+            <div class="ctx-pill"><i class="ti ti-chart-bar" aria-hidden="true"></i> CHF 68,400 YTD</div>
+            <div class="ctx-pill"><i class="ti ti-percentage" aria-hidden="true"></i> Not VAT registered</div>
+          </div>
+        </div>
+        <div class="messages" id="messages"></div>
+        <div class="sug-chips" id="sug-chips"></div>
+        <div class="chat-input-wrap">
+          <div class="chat-input-row">
+            <input class="chat-input" id="chat-input" placeholder="Ask anything about your Swiss business..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}">
+            <i class="ti ti-paperclip chat-attach" aria-hidden="true"></i>
+            <button class="send-btn" id="send-btn" onclick="sendMsg()"><i class="ti ti-send" aria-hidden="true"></i></button>
+          </div>
+          <div class="chat-hint">AI answers instantly · Accountant verification on Pro & Confidence plans</div>
+        </div>
+      </div>
+
+      <div class="accountant-panel" id="accountant-panel">
+        <div class="ap-head">
+          <div class="ap-title">My accountant</div>
+          <div class="ap-sub">Pro plan · 1 answer remaining this month</div>
+        </div>
+        <div class="ap-card">
+          <div class="ap-accountant">
+            <div class="ap-av">MS</div>
+            <div>
+              <div class="ap-name">Maria Schneider</div>
+              <div class="ap-role">Certified Swiss accountant · Müller Treuhand AG</div>
+            </div>
+          </div>
+          <div class="ap-status"><div class="ap-dot"></div><div style="font-size:11px;color:var(--accent-d);">Available · responds within 24h</div></div>
+        </div>
+        <div class="ap-quota">
+          <div class="ap-quota-title">Human answers this month</div>
+          <div class="ap-quota-bar"><div class="ap-quota-fill" style="width:0%;"></div></div>
+          <div class="ap-quota-sub" id="quota-sub">0 of 1 used (Pro plan)</div>
+        </div>
+        <div class="ap-escalations">
+          <div class="ap-esc-title">Escalation history</div>
+          <div id="esc-history"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const SYSTEM_PROMPT = `You are Settlo AI, an expert Swiss tax and business assistant for self-employed professionals. 
+
+User context:
+- Name: Anna Müller
+- Business: Anna Müller Consulting (sole proprietorship)
+- Canton: Zürich (ZH)
+- Revenue YTD: CHF 68,400
+- VAT status: NOT registered (approaching CHF 100,000 threshold)
+- Estimated annual revenue: CHF 120,000
+- Marital status: Single (Tariff A)
+- Pillar 3a: CHF 7,056/year
+- Plan: Pro (1 human accountant answer per month)
+
+Instructions:
+- Answer questions about Swiss taxes, AHV/IV/EO, VAT, deductions, and business administration
+- Be specific and practical — use concrete CHF amounts when relevant to Anna's situation
+- Reference Swiss law (e.g. DBG, MWSTG) when appropriate
+- Keep answers concise but complete — use paragraphs, not bullet lists
+- Always mention when something varies by canton
+- End complex tax answers with a note about confidence level
+- Never give advice that could be harmful — if very complex or personal, suggest verifying with a certified Swiss accountant
+- Do NOT mention that you are Claude or made by Anthropic — you are Settlo AI`;
+
+const conversations = [
+  {
+    id:1, title:'VAT registration timing', date:'Just now', badge:'new',
+    msgs:[
+      {role:'user', text:'Do I need to register for VAT this year?'},
+      {role:'ai', text:'Based on your current revenue of CHF 68,400, you\'re at 68% of the mandatory VAT registration threshold of CHF 100,000.\n\nAt your current pace you\'ll cross it around September 2026. Once you exceed CHF 100,000, registration is mandatory within 30 days of crossing the threshold.\n\nMy recommendation: register voluntarily in August to avoid penalties and give yourself time to set up VAT accounting properly before the rush.', conf:'High confidence · Swiss MWSTG Art. 10', confLevel:'high'}
+    ]
+  },
+  {
+    id:2, title:'AHV contributions 2026', date:'Yesterday', badge:'answered',
+    escalation:{status:'answered', q:'Is the AHV rate fixed or does it change?', a:'The AHV rate for self-employed persons is indeed fixed at 10.6% of net income for 2026. It may be adjusted slightly in future years by the Federal Council based on AVS/AI/APG fund requirements. The IV rate (1.4%) and EO rate (0.5%) are also fixed. Your total social insurance contribution rate is 12.5%, which for your net income of approx. CHF 54,200 means roughly CHF 6,775 total.', accountant:'Maria Schneider', date:'Yesterday'},
+    msgs:[
+      {role:'user', text:'How is AHV calculated for sole proprietors?'},
+      {role:'ai', text:'For self-employed individuals in Switzerland, AHV is calculated at 10.6% of your net business income — that is, your gross revenue minus deductible business expenses.\n\nYou also pay IV (disability insurance) at 1.4% and EO (income compensation) at 0.5%, bringing your total social insurance contribution to 12.5% of net income.\n\nFor your situation: with net income of approximately CHF 54,200 (CHF 68,400 revenue minus CHF 14,200 expenses), your total social insurance bill for the full year would be around CHF 6,775.\n\nImportant advantage: you can deduct 50% of your AHV contributions from your taxable income, which reduces your income tax base.', conf:'High confidence', confLevel:'high'},
+      {role:'escalation-answered', q:'Is the AHV rate fixed or does it change?', aiAnswer:'The AHV rate may be adjusted by the Federal Council in future years.', accountantAnswer:'The AHV rate for self-employed persons is indeed fixed at 10.6% of net income for 2026. It may be adjusted slightly in future years by the Federal Council based on AVS/AI/APG fund requirements. The IV rate (1.4%) and EO rate (0.5%) are also fixed. Your total social insurance contribution rate is 12.5%, which for your net income of approx. CHF 54,200 means roughly CHF 6,775 total.', accountant:'Maria Schneider', date:'Yesterday', resolved:true}
+    ]
+  },
+  {
+    id:3, title:'Home office deduction', date:'2 days ago', badge:null,
+    msgs:[
+      {role:'user', text:'Can I deduct my home office costs?'},
+      {role:'ai', text:'Yes, as a self-employed person you can deduct home office costs in Switzerland. You have two options:\n\nProportional share: calculate the percentage of your home used exclusively for work (e.g. a 20m² office in a 100m² apartment = 20%) and deduct that proportion of rent, utilities, and internet.\n\nFlat rate: some cantons accept a simplified flat-rate deduction based on a fixed formula. In Zürich, the proportional method is generally preferred.\n\nThe home office must be your primary and regular place of work. Keep records of your lease and utility bills.', conf:'High confidence · Zürich practice', confLevel:'high'}
+    ]
+  },
+  {
+    id:4, title:'Client lunch deductibility', date:'12 May', badge:null,
+    msgs:[
+      {role:'user', text:'Is a business lunch with a client deductible?'},
+      {role:'ai', text:'Business meals with clients are 50% deductible under Swiss direct federal tax rules. This applies to the cost of the meal including drinks.\n\nTo be safe, keep the receipt and note the date, who was present, and the business purpose of the meeting. For amounts over CHF 50, documentation becomes more important if you are audited.\n\nSome cantons may have slightly different interpretations, but 50% is the standard safe deduction that applies nationwide.', conf:'High confidence', confLevel:'high'}
+    ]
+  }
+];
+
+let currentConvId = 1;
+let isLoading = false;
+let quotaUsed = 0;
+const escalations = [];
+
+function getConv(id){ return conversations.find(c=>c.id===id); }
+
+function renderConvList(filter=''){
+  const el = document.getElementById('conv-list');
+  const today = conversations.filter(c=>['Just now','Today'].includes(c.date)&&(!filter||c.title.toLowerCase().includes(filter.toLowerCase())));
+  const week = conversations.filter(c=>['Yesterday','2 days ago'].includes(c.date)&&(!filter||c.title.toLowerCase().includes(filter.toLowerCase())));
+  const older = conversations.filter(c=>!['Just now','Today','Yesterday','2 days ago'].includes(c.date)&&(!filter||c.title.toLowerCase().includes(filter.toLowerCase())));
+  let html = '';
+  if(today.length){ html += '<div class="conv-section">Today</div>'; html += today.map(c=>convItem(c)).join(''); }
+  if(week.length){ html += '<div class="conv-section">This week</div>'; html += week.map(c=>convItem(c)).join(''); }
+  if(older.length){ html += '<div class="conv-section">Earlier</div>'; html += older.map(c=>convItem(c)).join(''); }
+  el.innerHTML = html;
+}
+
+function convItem(c){
+  const lastMsg = c.msgs.filter(m=>m.role==='user').slice(-1)[0];
+  const preview = lastMsg ? lastMsg.text.slice(0,45)+'...' : '';
+  const badge = c.badge ? `<div class="cbadge ${c.badge}">${c.badge}</div>` : '';
+  return `<div class="conv-item${c.id===currentConvId?' active':''}" onclick="selectConv(${c.id})">
+    <div class="conv-item-title"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</span>${badge}</div>
+    <div class="conv-item-preview">${preview}</div>
+    <div class="conv-item-date">${c.date}</div>
+  </div>`;
+}
+
+function selectConv(id){
+  currentConvId = id;
+  const c = getConv(id);
+  document.getElementById('chat-title').textContent = c.title;
+  renderMessages();
+  renderConvList();
+  updateChips();
+}
+
+function renderMessages(){
+  const c = getConv(currentConvId);
+  const el = document.getElementById('messages');
+  el.innerHTML = c.msgs.map(m => renderMsg(m)).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderMsg(m){
+  if(m.role==='user'){
+    return `<div class="msg-user"><div class="msg-user-bubble">${escHtml(m.text)}</div></div>`;
+  }
+  if(m.role==='typing'){
+    return `<div class="msg-ai"><div class="ai-av">S</div><div class="msg-ai-content"><div class="msg-ai-bubble"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div></div></div>`;
+  }
+  if(m.role==='escalation-pending'){
+    return `<div class="msg-ai">
+      <div class="ai-av accountant"><i class="ti ti-user-check" style="font-size:13px;color:#7B9BAD;" aria-hidden="true"></i></div>
+      <div class="msg-ai-content">
+        <div class="esc-pending">
+          <div class="esc-pending-head">
+            <div style="width:26px;height:26px;border-radius:50%;background:var(--warn-l);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--warn-d);flex-shrink:0;">MS</div>
+            <div><div style="font-size:12px;font-weight:500;color:var(--warn-d);">Sent to accountant</div><div style="font-size:10px;color:var(--warn-d);margin-top:1px;">Maria Schneider will respond within 24h</div></div>
+            <div class="esc-badge pending">Pending</div>
+          </div>
+          <div class="esc-body">
+            <div class="esc-q"><i class="ti ti-message-circle" style="font-size:12px;" aria-hidden="true"></i> Your question: "${escHtml(m.q)}"</div>
+            <div style="font-size:12px;color:var(--text2);font-style:italic;">AI answer sent for verification. Maria will review and add her professional opinion.</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+  if(m.role==='escalation-answered'){
+    return `<div class="msg-ai">
+      <div class="ai-av accountant"><i class="ti ti-user-check" style="font-size:13px;color:var(--accent);" aria-hidden="true"></i></div>
+      <div class="msg-ai-content">
+        <div class="esc-answered">
+          <div class="esc-answered-head">
+            <div style="width:26px;height:26px;border-radius:50%;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--accent-d);flex-shrink:0;">MS</div>
+            <div><div style="font-size:12px;font-weight:500;color:var(--accent-d);">Verified by your accountant</div><div style="font-size:10px;color:var(--accent-d);margin-top:1px;">Maria Schneider · Certified Swiss accountant · ${escHtml(m.date)}</div></div>
+            <div class="esc-badge answered"><i class="ti ti-circle-check" style="font-size:10px;margin-right:2px;" aria-hidden="true"></i>Verified</div>
+          </div>
+          <div class="esc-body">
+            <div class="esc-q"><i class="ti ti-message-circle" style="font-size:12px;" aria-hidden="true"></i> Your question: "${escHtml(m.q)}"</div>
+            <div class="esc-a">${escHtml(m.accountantAnswer)}</div>
+            <div class="esc-footer">
+              <div class="esc-who"><div class="esc-who-av">MS</div> Maria Schneider · Müller Treuhand AG</div>
+              ${!m.resolved ? `<div class="esc-resolve" onclick="resolveEscalation(this)"><i class="ti ti-check" style="font-size:11px;" aria-hidden="true"></i> Mark as resolved</div>` : '<div style="font-size:11px;color:var(--text3);">Resolved</div>'}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+  const lines = m.text.split('\n').filter(l=>l.trim()).map(l=>`<p>${escHtml(l)}</p>`).join('');
+  const confClass = m.confLevel==='low' ? 'msg-conf low' : 'msg-conf';
+  const confIcon = m.confLevel==='low' ? 'ti-alert-circle' : 'ti-circle-check';
+  return `<div class="msg-ai">
+    <div class="ai-av">S</div>
+    <div class="msg-ai-content">
+      <div class="msg-ai-bubble">${lines}</div>
+      <div class="msg-footer">
+        <div class="${confClass}"><i class="ti ${confIcon}" style="font-size:12px;" aria-hidden="true"></i> ${escHtml(m.conf||'Answered')}</div>
+        <div class="msg-verify" onclick="escalate('${escHtml(m.text.slice(0,80))}','${escHtml(m.text.slice(0,200))}')"><i class="ti ti-user-check" style="font-size:11px;" aria-hidden="true"></i> Verify with accountant</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+async function sendMsg(){
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if(!text || isLoading) return;
+  input.value = '';
+  isLoading = true;
+  document.getElementById('send-btn').disabled = true;
+
+  const c = getConv(currentConvId);
+  c.msgs.push({role:'user', text});
+  c.msgs.push({role:'typing'});
+  renderMessages();
+
+  const history = c.msgs.filter(m=>['user','ai'].includes(m.role)).slice(0,-1).map(m=>({role:m.role==='ai'?'assistant':'user', content:m.text}));
+  history.push({role:'user', content: text});
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        system:SYSTEM_PROMPT,
+        messages:history
+      })
+    });
+    const data = await res.json();
+    const answer = data.content?.[0]?.text || 'I could not process that question. Please try again.';
+    const isSimple = answer.length < 200;
+    c.msgs.pop();
+    c.msgs.push({role:'ai', text:answer, conf: isSimple ? 'Answered' : 'Based on Swiss tax law · Verify for your specific situation', confLevel: isSimple ? 'high' : 'high'});
+    if(c.badge==='new') c.badge = null;
+  } catch(e){
+    c.msgs.pop();
+    c.msgs.push({role:'ai', text:'Connection issue — please try again.', conf:'Error', confLevel:'low'});
+  }
+
+  isLoading = false;
+  document.getElementById('send-btn').disabled = false;
+  renderMessages();
+  renderConvList();
+  updateChips();
+}
+
+function escalate(question, aiAnswer){
+  if(quotaUsed >= 1){
+    showToast('Monthly limit reached — upgrade to Confidence for 3 answers/month');
+    return;
+  }
+  quotaUsed++;
+  const c = getConv(currentConvId);
+  c.msgs.push({role:'escalation-pending', q: question});
+  renderMessages();
+  updateQuota();
+  updateEscHistory();
+
+  setTimeout(()=>{
+    const idx = c.msgs.findIndex(m=>m.role==='escalation-pending'&&m.q===question);
+    if(idx>-1){
+      c.msgs[idx] = {
+        role:'escalation-answered',
+        q:question,
+        aiAnswer,
+        accountantAnswer:'Settlo AI\'s answer is correct and well-explained. I\'d add one practical nuance specific to your situation: given your trajectory, you should also be aware that if any single invoice exceeds CHF 100,000 on its own, that alone triggers mandatory registration immediately, regardless of your YTD total. For the registration process itself, I\'d recommend starting the ESTV online application at least 6 weeks before your target start date. I can assist with the application if you\'d like.',
+        accountant:'Maria Schneider',
+        date:'Just now',
+        resolved:false
+      };
+      renderMessages();
+      c.badge = 'answered';
+      renderConvList();
+      updateEscHistory();
+      updateBadge();
+      showToast('Maria Schneider answered your question');
+    }
+  }, 3500);
+}
+
+function resolveEscalation(btn){
+  const c = getConv(currentConvId);
+  const esc = c.msgs.find(m=>m.role==='escalation-answered'&&!m.resolved);
+  if(esc) esc.resolved = true;
+  renderMessages();
+  updateEscHistory();
+}
+
+function updateQuota(){
+  const fill = document.querySelector('.ap-quota-fill');
+  const sub = document.getElementById('quota-sub');
+  if(fill) fill.style.width = (quotaUsed/1*100)+'%';
+  if(sub) sub.textContent = quotaUsed+' of 1 used (Pro plan)';
+}
+
+function updateEscHistory(){
+  const el = document.getElementById('esc-history');
+  const all = conversations.flatMap(c=>c.msgs.filter(m=>['escalation-pending','escalation-answered'].includes(m.role)).map(m=>({...m,convTitle:c.title})));
+  if(!all.length){el.innerHTML='<div style="font-size:11px;color:var(--text3);">No escalations yet.</div>';return;}
+  el.innerHTML = all.map(m=>`
+    <div class="ap-esc-item ${m.role==='escalation-pending'?'pending':'answered'}">
+      <div class="ap-esc-q">${escHtml(m.q)}</div>
+      <div class="ap-esc-meta">${m.role==='escalation-pending'?'⏳ Pending · Maria Schneider':'✓ Answered · '+escHtml(m.date||'')}</div>
+    </div>`).join('');
+}
+
+function updateBadge(){
+  const b = document.getElementById('ai-badge');
+  const pending = conversations.flatMap(c=>c.msgs).filter(m=>m.role==='escalation-pending').length;
+  if(b) b.textContent = pending > 0 ? pending : conversations.filter(c=>c.badge==='new').length || '1';
+}
+
+const chips = [
+  'Do I need to register for VAT?',
+  'How is AHV calculated?',
+  'Can I deduct home office costs?',
+  'What is the Pillar 3a maximum?',
+  'How does the communal tax multiplier work?',
+  'Can I deduct client gifts?',
+  'What expenses are 100% deductible?',
+  'How do I file my Swiss tax declaration?'
+];
+
+function updateChips(){
+  const el = document.getElementById('sug-chips');
+  const sample = chips.sort(()=>Math.random()-.5).slice(0,4);
+  el.innerHTML = sample.map(q=>`<div class="chip" onclick="askChip('${q}')">${q}</div>`).join('');
+}
+
+function askChip(q){
+  document.getElementById('chat-input').value = q;
+  sendMsg();
+}
+
+function newConversation(){
+  const id = Date.now();
+  const titles = ['New question','Tax question','Swiss business question'];
+  conversations.unshift({id, title:'New conversation', date:'Just now', badge:'new', msgs:[]});
+  currentConvId = id;
+  document.getElementById('chat-title').textContent = 'New conversation';
+  document.getElementById('chat-sub').textContent = 'Zürich · CHF 68,400 YTD · Not VAT registered';
+  renderConvList();
+  renderMessages();
+  document.getElementById('chat-input').focus();
+}
+
+function filterConvs(val){ renderConvList(val); }
+
+function showAccountantPanel(){
+  const p = document.getElementById('accountant-panel');
+  p.style.display = p.style.display==='none'?'flex':'none';
+}
+
+function showToast(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:absolute;bottom:16px;right:16px;background:#0D1F2D;color:#fff;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;z-index:9999;max-width:300px;line-height:1.4;';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+function stubNav(screen){
+  showToast('Navigation to '+screen+' — available in Sessions 1 & 2');
+}
+
+renderConvList();
+renderMessages();
+updateChips();
+updateEscHistory();
+</script>

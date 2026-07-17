@@ -1,0 +1,842 @@
+// =============================================================================
+// SETTLO — Prisma Schema
+// PostgreSQL 18 | Prisma 7
+// Version: 1.0 POC
+// =============================================================================
+// Design decisions:
+//   - Multi-entity from day one: User → (many) BusinessEntity
+//   - Accountants are first-class users with role ACCOUNTANT
+//   - Canton fiscal config stored in DB (never hardcoded)
+//   - Currency-ready: all monetary amounts stored as Decimal(18,8)
+//     to support fiat and crypto. CHF only for POC.
+//   - Soft deletes on critical entities (deletedAt)
+//   - All timestamps in UTC
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuidOssp(map: "uuid-ossp"), pgcrypto]
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  OWNER        // Self-employed person, owns one or more BusinessEntity
+  ACCOUNTANT   // Certified accountant, can be assigned to BusinessEntity
+  ADMIN        // Settlo internal admin
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum SubscriptionTier {
+  SOLO        // CHF 19/mo — software only, no human accountant access
+  PRO         // CHF 49/mo — tax engine + 1 human answer/mo
+  CONFIDENCE  // CHF 99/mo — full service, 3 human answers/mo + annual review
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+enum BusinessEntityType {
+  SOLE_PROPRIETORSHIP  // Einzelunternehmen — primary POC target
+  GmbH                 // Future
+  AG                   // Future
+  ASSOCIATION          // Future
+}
+
+enum VatStatus {
+  NOT_REGISTERED       // Under CHF 100k threshold
+  REGISTERED           // Mandatory or voluntary VAT registration
+  EXEMPT               // Special exemption categories
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ExpenseStatus {
+  PENDING_REVIEW       // Just uploaded, OCR processing or awaiting user review
+  REVIEWED             // User confirmed categories and data
+  FLAGGED              // Needs accountant review
+}
+
+enum DeductibilityStatus {
+  FULLY_DEDUCTIBLE
+  PARTIALLY_DEDUCTIBLE
+  NOT_DEDUCTIBLE
+  UNCERTAIN            // AI not confident — suggest human review
+}
+
+enum AiEscalationStatus {
+  PENDING              // Waiting for accountant to pick up
+  IN_PROGRESS          // Accountant working on it
+  ANSWERED             // Accountant responded
+  CLOSED               // User acknowledged answer
+}
+
+enum AiQuestionCategory {
+  TAX_DEDUCTION
+  VAT_QUESTION
+  AHV_IV_EO
+  INCOME_TAX
+  BUSINESS_STRUCTURE
+  EXPENSE_CATEGORIZATION
+  GENERAL_BUSINESS
+  OTHER
+}
+
+enum CurrencyType {
+  FIAT
+  CRYPTO
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+// =============================================================================
+// CORE: USERS & AUTHENTICATION
+// =============================================================================
+
+model User {
+  id                String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email             String      @unique
+  passwordHash      String
+  role              UserRole    @default(OWNER)
+  status            UserStatus  @default(PENDING_VERIFICATION)
+
+  // Profile
+  firstName         String
+  lastName          String
+  phone             String?
+  avatarUrl         String?
+  preferredLanguage String      @default("en") // en | de | fr | it
+
+  // Email verification
+  emailVerifiedAt   DateTime?
+  verificationToken String?     @unique
+
+  // Password reset
+  resetToken        String?     @unique
+  resetTokenExpiry  DateTime?
+
+  // Timestamps
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  deletedAt         DateTime?   // Soft delete
+
+  // Relations
+  ownedEntities         BusinessEntity[]        @relation("EntityOwner")
+  accountantAssignments AccountantAssignment[]
+  sessions              UserSession[]
+  subscription          Subscription?
+  aiConversations       AiConversation[]
+  accountantAnswers     AiEscalation[]          @relation("AccountantResponder")
+  notifications         Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model UserSession {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String   @db.Uuid
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshToken])
+  @@map("user_sessions")
+}
+
+// =============================================================================
+// SUBSCRIPTIONS & BILLING
+// =============================================================================
+
+model Subscription {
+  id                   String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId               String             @unique @db.Uuid
+  tier                 SubscriptionTier
+  status               SubscriptionStatus @default(TRIALING)
+
+  // Stripe
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+
+  // Trial
+  trialStartsAt        DateTime           @default(now())
+  trialEndsAt          DateTime
+  trialUsed            Boolean            @default(false)
+
+  // Billing cycle
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+
+  // Human answer quota (resets monthly)
+  humanAnswersUsed     Int                @default(0)
+  humanAnswersQuota    Int                @default(0) // 0=Solo, 1=Pro, 3=Confidence
+  quotaResetAt         DateTime?
+
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+// =============================================================================
+// BUSINESS ENTITIES
+// Multi-entity: one User can own multiple BusinessEntity records
+// =============================================================================
+
+model BusinessEntity {
+  id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ownerId          String             @db.Uuid
+  name             String
+  legalName        String?            // Official registered name if different
+  type             BusinessEntityType @default(SOLE_PROPRIETORSHIP)
+
+  // Swiss-specific identifiers
+  uid              String?            // UID (Unternehmens-Identifikationsnummer) CHE-xxx.xxx.xxx
+  mwstNumber       String?            // MWST/TVA/IVA registration number
+
+  // Address
+  street           String?
+  streetNumber     String?
+  city             String?
+  postalCode       String?
+  cantonId         String?            @db.Uuid
+
+  // Tax profile
+  vatStatus        VatStatus          @default(NOT_REGISTERED)
+  fiscalYearStart  Int                @default(1)  // Month: 1 = January
+  estimatedAnnualRevenue Decimal?     @db.Decimal(18, 8)
+  currencyCode     String             @default("CHF")
+
+  // Settings
+  defaultLanguage  String             @default("en")
+  logoUrl          String?
+  defaultPaymentTermDays Int          @default(30)
+  defaultInvoiceNotes String?
+
+  // Timestamps
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  deletedAt        DateTime?
+
+  // Relations
+  owner                 User                   @relation("EntityOwner", fields: [ownerId], references: [id])
+  canton                Canton?                @relation(fields: [cantonId], references: [id])
+  accountantAssignments AccountantAssignment[]
+  clients               Client[]
+  invoices              Invoice[]
+  expenses              Expense[]
+  taxEstimations        TaxEstimation[]
+  bankAccounts          BankAccount[]
+  aiConversations       AiConversation[]
+
+  @@index([ownerId])
+  @@index([cantonId])
+  @@index([deletedAt])
+  @@map("business_entities")
+}
+
+// Accountant assigned to a BusinessEntity
+model AccountantAssignment {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  businessEntityId String    @db.Uuid
+  accountantId     String    @db.Uuid
+  assignedAt       DateTime  @default(now())
+  revokedAt        DateTime?
+  isPrimary        Boolean   @default(true) // Primary accountant for this entity
+
+  businessEntity BusinessEntity @relation(fields: [businessEntityId], references: [id], onDelete: Cascade)
+  accountant     User           @relation(fields: [accountantId], references: [id])
+
+  @@unique([businessEntityId, accountantId])
+  @@index([accountantId])
+  @@map("accountant_assignments")
+}
+
+// =============================================================================
+// SWISS CANTONAL CONFIGURATION
+// All fiscal rules stored in DB — never hardcoded
+// =============================================================================
+
+model Canton {
+  id               String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code             String  @unique // ZH, GE, BS, ZG, etc.
+  nameDe           String
+  nameFr           String
+  nameIt           String
+  nameEn           String
+
+  // Canton-level tax rates (updated by admin when law changes)
+  stateTaxRate     Decimal @db.Decimal(8, 4)   // Canton income tax rate %
+  communalMultiplierDefault Decimal @db.Decimal(8, 4) // Default if commune not found
+
+  // AHV reference rates (updated annually)
+  ahvRate          Decimal @db.Decimal(8, 4)   // Currently 10.6% for self-employed (2026)
+  ivRate           Decimal @db.Decimal(8, 4)   // 1.4%
+  eoRate           Decimal @db.Decimal(8, 4)   // 0.5%
+
+  // Federal rates (same across cantons, but stored here for single source of truth)
+  federalTaxRate   Decimal @db.Decimal(8, 4)
+
+  // VAT rates (federal, apply nationwide)
+  vatStandardRate  Decimal @db.Decimal(8, 4)   // 8.1%
+  vatReducedRate   Decimal @db.Decimal(8, 4)   // 2.6% (food, books, medicine)
+  vatSpecialRate   Decimal @db.Decimal(8, 4)   // 3.8% (accommodation)
+  vatThreshold     Decimal @db.Decimal(18, 8)  // CHF 100,000
+
+  // Metadata
+  effectiveFrom    DateTime  // When these rates became effective
+  effectiveTo      DateTime? // Null = currently active
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  businesses       BusinessEntity[]
+  communes         Commune[]
+  taxEstimations   TaxEstimation[]
+
+  @@index([code])
+  @@map("cantons")
+}
+
+model Commune {
+  id               String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  cantonId         String  @db.Uuid
+  name             String
+  bfsNumber        String  // Official Swiss BFS commune number
+  taxMultiplier    Decimal @db.Decimal(8, 4)  // Communal tax multiplier
+  effectiveFrom    DateTime
+  effectiveTo      DateTime?
+
+  canton Canton @relation(fields: [cantonId], references: [id])
+
+  @@unique([cantonId, bfsNumber])
+  @@index([cantonId])
+  @@map("communes")
+}
+
+// =============================================================================
+// CURRENCIES
+// CHF only for POC — architecture ready for fiat + crypto
+// =============================================================================
+
+model Currency {
+  code         String       @id  // CHF, EUR, USD, BTC, ETH...
+  name         String
+  symbol       String
+  type         CurrencyType @default(FIAT)
+  decimals     Int          @default(2)  // 2 for fiat, 8 for crypto
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  exchangeRates ExchangeRate[] @relation("BaseCurrency")
+
+  @@map("currencies")
+}
+
+model ExchangeRate {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  baseCurrency   String   // Always CHF for Settlo
+  targetCurrency String
+  rate           Decimal  @db.Decimal(18, 8)
+  source         String?  // e.g. "SNB", "CoinGecko"
+  recordedAt     DateTime @default(now())
+
+  currency Currency @relation("BaseCurrency", fields: [baseCurrency], references: [code])
+
+  @@index([baseCurrency, targetCurrency, recordedAt])
+  @@map("exchange_rates")
+}
+
+// =============================================================================
+// CLIENTS
+// =============================================================================
+
+model Client {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  businessEntityId String    @db.Uuid
+  name             String
+  email            String?
+  phone            String?
+  vatNumber        String?   // Client's VAT number for B2B invoices
+
+  // Address
+  street           String?
+  streetNumber     String?
+  city             String?
+  postalCode       String?
+  countryCode      String    @default("CH")
+
+  // QR-bill specific (SIX standard)
+  iban             String?   // Client's IBAN for credit transfers
+  qrIban           String?   // QR-IBAN for QR invoices
+
+  // Settings
+  defaultLanguage  String    @default("en")
+  defaultPaymentTermDays Int @default(30)
+  notes            String?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  businessEntity BusinessEntity @relation(fields: [businessEntityId], references: [id], onDelete: Cascade)
+  invoices       Invoice[]
+
+  @@index([businessEntityId])
+  @@index([email])
+  @@index([deletedAt])
+  @@map("clients")
+}
+
+// =============================================================================
+// INVOICES
+// Swiss QR-bill compliant
+// =============================================================================
+
+model Invoice {
+  id               String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  businessEntityId String        @db.Uuid
+  clientId         String        @db.Uuid
+  invoiceNumber    String        // e.g. INV-2026-0042 — unique per businessEntity
+  status           InvoiceStatus @default(DRAFT)
+
+  // Amounts — Decimal(18,8) for currency flexibility
+  subtotal         Decimal       @db.Decimal(18, 8)
+  vatAmount        Decimal       @default(0) @db.Decimal(18, 8)
+  vatRate          Decimal       @default(0) @db.Decimal(8, 4)
+  total            Decimal       @db.Decimal(18, 8)
+  paidAmount       Decimal       @default(0) @db.Decimal(18, 8)
+  currencyCode     String        @default("CHF")
+
+  // Dates
+  issueDate        DateTime      @default(now())
+  dueDate          DateTime
+  sentAt           DateTime?
+  viewedAt         DateTime?
+  paidAt           DateTime?
+
+  // Content
+  language         String        @default("en") // de | fr | it | en
+  notes            String?
+  internalNotes    String?
+
+  // Swiss QR-bill fields (SIX standard)
+  qrReference      String?       // QR reference number (27 digits)
+  creditorIban     String?       // Creditor's IBAN or QR-IBAN
+  creditorName     String?
+  creditorStreet   String?
+  creditorCity     String?
+  creditorPostal   String?
+  creditorCountry  String        @default("CH")
+  additionalInfo   String?       // Unstructured message on QR bill
+
+  // PDF
+  pdfUrl           String?
+  pdfGeneratedAt   DateTime?
+
+  // Reminder tracking
+  reminder1SentAt  DateTime?
+  reminder2SentAt  DateTime?
+  reminder3SentAt  DateTime?
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+
+  businessEntity BusinessEntity @relation(fields: [businessEntityId], references: [id], onDelete: Cascade)
+  client         Client         @relation(fields: [clientId], references: [id])
+  lineItems      InvoiceLineItem[]
+  payments       Payment[]
+
+  @@unique([businessEntityId, invoiceNumber])
+  @@index([businessEntityId, status])
+  @@index([clientId])
+  @@index([dueDate])
+  @@index([deletedAt])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  invoiceId   String  @db.Uuid
+  description String
+  quantity    Decimal @db.Decimal(10, 4)
+  unitPrice   Decimal @db.Decimal(18, 8)
+  vatRate     Decimal @default(0) @db.Decimal(8, 4)
+  total       Decimal @db.Decimal(18, 8)
+  sortOrder   Int     @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+model Payment {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  invoiceId     String   @db.Uuid
+  amount        Decimal  @db.Decimal(18, 8)
+  currencyCode  String   @default("CHF")
+  paidAt        DateTime @default(now())
+  method        String?  // "bank_transfer" | "cash" | "other"
+  reference     String?  // Bank reference or ESR number
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+// =============================================================================
+// EXPENSES
+// OCR + AI categorization + deductibility
+// =============================================================================
+
+model Expense {
+  id               String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  businessEntityId String              @db.Uuid
+  status           ExpenseStatus       @default(PENDING_REVIEW)
+
+  // Core data (filled by OCR, confirmed by user)
+  vendor           String?
+  description      String?
+  amount           Decimal             @db.Decimal(18, 8)
+  vatAmount        Decimal             @default(0) @db.Decimal(18, 8)
+  vatRate          Decimal             @default(0) @db.Decimal(8, 4)
+  netAmount        Decimal             @db.Decimal(18, 8)
+  currencyCode     String              @default("CHF")
+  expenseDate      DateTime
+
+  // Categorization
+  categoryId       String?             @db.Uuid
+  deductibility    DeductibilityStatus @default(UNCERTAIN)
+  deductibleAmount Decimal?            @db.Decimal(18, 8)
+  deductiblePct    Decimal?            @db.Decimal(5, 2) // e.g. 50.00 for 50%
+
+  // OCR processing
+  receiptUrl       String?             // Original uploaded file
+  ocrProcessedAt   DateTime?
+  ocrRawData       Json?               // Raw OCR response stored for debugging
+  ocrConfidence    Decimal?            @db.Decimal(5, 4) // 0.0000 to 1.0000
+
+  // AI categorization
+  aiSuggestedCategoryId String?        @db.Uuid
+  aiConfidence          Decimal?       @db.Decimal(5, 4)
+  aiReasoning           String?        // Short explanation shown to user
+
+  // User override tracking
+  userOverrodeCategory    Boolean      @default(false)
+  userOverrodeDeductibility Boolean    @default(false)
+
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  deletedAt        DateTime?
+
+  businessEntity    BusinessEntity  @relation(fields: [businessEntityId], references: [id], onDelete: Cascade)
+  category          ExpenseCategory? @relation("AssignedCategory", fields: [categoryId], references: [id])
+  aiSuggestedCategory ExpenseCategory? @relation("AiSuggestedCategory", fields: [aiSuggestedCategoryId], references: [id])
+
+  @@index([businessEntityId, status])
+  @@index([expenseDate])
+  @@index([deletedAt])
+  @@map("expenses")
+}
+
+model ExpenseCategory {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code             String   @unique  // e.g. "OFFICE_SUPPLIES", "TRAVEL", "MEALS"
+  nameDe           String
+  nameFr           String
+  nameIt           String
+  nameEn           String
+
+  // Swiss tax deductibility rules for this category
+  defaultDeductibility     DeductibilityStatus @default(FULLY_DEDUCTIBLE)
+  defaultDeductiblePct     Decimal             @db.Decimal(5, 2) @default(100)
+  requiresProof            Boolean             @default(false) // e.g. meals > CHF 50
+  vatEligible              Boolean             @default(true)
+  notes                    String?             // Explanation for accountants/AI
+
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  expenses          Expense[] @relation("AssignedCategory")
+  aiSuggestedFor    Expense[] @relation("AiSuggestedCategory")
+
+  @@map("expense_categories")
+}
+
+// =============================================================================
+// TAX ESTIMATION ENGINE
+// The core differentiator — canton-aware, updated weekly
+// =============================================================================
+
+model TaxEstimation {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  businessEntityId String   @db.Uuid
+  cantonId         String   @db.Uuid
+  fiscalYear       Int      // e.g. 2026
+  calculatedAt     DateTime @default(now())
+
+  // Income base
+  grossRevenue     Decimal  @db.Decimal(18, 8)  // Total invoiced YTD
+  totalExpenses    Decimal  @db.Decimal(18, 8)  // Total deductible expenses YTD
+  netIncome        Decimal  @db.Decimal(18, 8)  // grossRevenue - totalExpenses
+
+  // AHV/IV/EO (social insurance)
+  ahvContribution  Decimal  @db.Decimal(18, 8)
+  ivContribution   Decimal  @db.Decimal(18, 8)
+  eoContribution   Decimal  @db.Decimal(18, 8)
+  totalSocialInsurance Decimal @db.Decimal(18, 8)
+
+  // Income after social insurance deduction
+  taxableIncome    Decimal  @db.Decimal(18, 8)  // netIncome - totalSocialInsurance
+
+  // Income tax
+  federalTax       Decimal  @db.Decimal(18, 8)
+  cantonalTax      Decimal  @db.Decimal(18, 8)
+  communalTax      Decimal  @db.Decimal(18, 8)
+  totalIncomeTax   Decimal  @db.Decimal(18, 8)
+
+  // VAT (if registered)
+  vatOwed          Decimal  @default(0) @db.Decimal(18, 8)
+  vatCollected     Decimal  @default(0) @db.Decimal(18, 8)
+  vatDeductible    Decimal  @default(0) @db.Decimal(18, 8)
+  vatNetOwed       Decimal  @default(0) @db.Decimal(18, 8)
+
+  // Grand total and reserve recommendation
+  totalTaxBurden   Decimal  @db.Decimal(18, 8)  // totalIncomeTax + totalSocialInsurance + vatNetOwed
+  monthlyReserveRecommended Decimal @db.Decimal(18, 8) // totalTaxBurden / remaining months
+
+  // Projections
+  projectedAnnualRevenue  Decimal @db.Decimal(18, 8)
+  projectedTotalTax       Decimal @db.Decimal(18, 8)
+
+  // Snapshot of rates used (for audit trail)
+  ratesSnapshot    Json     // Canton rates at time of calculation
+
+  // VAT threshold warning
+  vatThresholdPct  Decimal  @db.Decimal(5, 2)  // % of CHF 100k threshold reached
+  vatThresholdWarning Boolean @default(false)
+
+  businessEntity BusinessEntity @relation(fields: [businessEntityId], references: [id], onDelete: Cascade)
+  canton         Canton         @relation(fields: [cantonId], references: [id])
+
+  @@index([businessEntityId, fiscalYear])
+  @@index([calculatedAt])
+  @@map("tax_estimations")
+}
+
+// =============================================================================
+// AI CONVERSATIONS & ESCALATIONS
+// =============================================================================
+
+model AiConversation {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String    @db.Uuid
+  businessEntityId String    @db.Uuid
+  title            String?   // Auto-generated from first message
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user           User           @relation(fields: [userId], references: [id])
+  businessEntity BusinessEntity @relation(fields: [businessEntityId], references: [id], onDelete: Cascade)
+  messages       AiMessage[]
+  escalations    AiEscalation[]
+
+  @@index([userId])
+  @@index([businessEntityId])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  conversationId String              @db.Uuid
+  role           String              // "user" | "assistant"
+  content        String
+  category       AiQuestionCategory?
+
+  // AI metadata (for assistant messages)
+  modelUsed      String?             // e.g. "claude-sonnet-4-20250514"
+  confidence     Decimal?            @db.Decimal(5, 4)  // 0.0 to 1.0
+  tokensUsed     Int?
+  processingMs   Int?
+
+  // Context used for this response
+  contextSnapshot Json?              // Canton, VAT status, income at time of question
+
+  createdAt      DateTime            @default(now())
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  escalation   AiEscalation?  // If this message was escalated
+
+  @@index([conversationId])
+  @@map("ai_messages")
+}
+
+model AiEscalation {
+  id             String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  conversationId String             @db.Uuid
+  messageId      String             @unique @db.Uuid  // The AI message user wants verified
+  userId         String             @db.Uuid          // User who requested escalation
+  accountantId   String?            @db.Uuid          // Accountant who picked it up
+  status         AiEscalationStatus @default(PENDING)
+  category       AiQuestionCategory?
+
+  // The question context
+  userQuestion   String             // Original user question
+  aiAnswer       String             // AI's answer that user wants verified
+
+  // Accountant response
+  accountantAnswer String?
+  accountantNotes  String?          // Internal notes, not shown to user
+  answeredAt       DateTime?
+
+  // Knowledge base: should this answer be reused for AI training?
+  addToKnowledgeBase Boolean        @default(false)
+  knowledgeBaseApprovedAt DateTime?
+
+  // SLA tracking
+  slaDeadline    DateTime           // Must be answered within 24 business hours
+  slaBreached    Boolean            @default(false)
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      AiMessage      @relation(fields: [messageId], references: [id])
+  user         User           @relation(fields: [userId], references: [id])  @map("escalatingUser")
+  accountant   User?          @relation("AccountantResponder", fields: [accountantId], references: [id])
+
+  @@index([status])
+  @@index([accountantId])
+  @@index([slaDeadline])
+  @@map("ai_escalations")
+}
+
+// =============================================================================
+// KNOWLEDGE BASE
+// Every accountant answer captured and reused to improve AI
+// Not visible to users — internal only
+// =============================================================================
+
+model KnowledgeBaseEntry {
+  id               String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  escalationId     String              @unique @db.Uuid
+  category         AiQuestionCategory
+  question         String              // Anonymized question
+  answer           String              // Accountant's verified answer
+  cantonCode       String?             // Canton context if relevant
+  vatStatus        VatStatus?          // VAT context if relevant
+  tags             String[]            // Searchable tags
+
+  // Embedding for RAG (stored as vector — extend with pgvector if needed)
+  embeddingModel   String?             // e.g. "text-embedding-3-small"
+  // embedding     Unsupported("vector(1536)")?  // Uncomment when pgvector added
+
+  approvedBy       String?             @db.Uuid  // Accountant who approved
+  approvedAt       DateTime?
+  usageCount       Int                 @default(0) // How many times AI retrieved this
+  lastUsedAt       DateTime?
+
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([category])
+  @@index([cantonCode])
+  @@index([isActive])
+  @@map("knowledge_base_entries")
+}
+
+// =============================================================================
+// BANK ACCOUNTS
+// POC: manual/CSV import only — bLink integration in v2
+// =============================================================================
+
+model BankAccount {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  businessEntityId String   @db.Uuid
+  bankName         String
+  iban             String
+  accountName      String?
+  currencyCode     String   @default("CHF")
+  isDefault        Boolean  @default(false)
+  lastSyncAt       DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  businessEntity BusinessEntity @relation(fields: [businessEntityId], references: [id], onDelete: Cascade)
+
+  @@index([businessEntityId])
+  @@map("bank_accounts")
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String    @db.Uuid
+  type       String    // "invoice_overdue" | "vat_threshold" | "escalation_answered" | etc.
+  title      String
+  body       String
+  data       Json?     // Extra context (invoiceId, escalationId, etc.)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}

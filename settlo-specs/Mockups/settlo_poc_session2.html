@@ -1,0 +1,698 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --dark:#0D1F2D;--mid:#1A3344;--light:#2D4A5A;--muted:#7B9BAD;
+  --accent:#00A878;--accent-l:#D4F0E8;--accent-d:#0F6E56;--accent-dk:#085041;
+  --warn:#F59E0B;--warn-l:#FEF3C7;--warn-d:#854F0B;
+  --danger:#E24B4A;--danger-l:#FCEBEB;--danger-d:#791F1F;
+  --bg:#F0F2F5;--card:#fff;--border:#E2E8F0;--border2:#CBD5E1;
+  --text:#0D1F2D;--text2:#4A5568;--text3:#9CA3AF;
+  --r:8px;--rl:12px;
+}
+.app{display:flex;flex-direction:column;height:680px;border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--border);}
+.topbar{background:var(--dark);height:48px;display:flex;align-items:center;padding:0 16px;gap:0;flex-shrink:0;}
+.t-logo{display:flex;align-items:center;gap:7px;min-width:160px;}
+.t-sq{width:24px;height:24px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#fff;}
+.t-txt{font-size:14px;font-weight:500;color:#fff;}
+.t-nav{display:flex;gap:2px;flex:1;}
+.t-item{padding:5px 11px;border-radius:var(--r);font-size:12px;color:var(--muted);cursor:pointer;}
+.t-item.active{background:var(--mid);color:#fff;}
+.t-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.t-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;border:none;font-family:inherit;}
+.t-btn.ghost{color:var(--muted);border:.5px solid #1E3548;background:transparent;}
+.t-btn.primary{color:#fff;background:var(--accent);}
+.t-avatar{width:26px;height:26px;border-radius:50%;background:var(--mid);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);}
+.body{display:grid;grid-template-columns:168px minmax(0,1fr);flex:1;overflow:hidden;}
+.sidebar{background:#0A1B28;padding:10px 0;display:flex;flex-direction:column;overflow-y:auto;}
+.e-pill{margin:0 8px 12px;background:var(--mid);border-radius:var(--r);padding:7px 9px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:4px;}
+.e-name{font-size:11px;font-weight:500;color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.e-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+.ns{font-size:9px;font-weight:500;color:#2D4A5A;padding:8px 12px 3px;text-transform:uppercase;letter-spacing:.07em;}
+.ni{display:flex;align-items:center;gap:7px;padding:7px 12px;font-size:12px;color:var(--muted);cursor:pointer;}
+.ni.active{background:var(--mid);color:#fff;}
+.ni i{font-size:14px;flex-shrink:0;}
+.nb{margin-left:auto;background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;}
+.sf{margin-top:auto;padding:10px 12px 12px;border-top:0.5px solid var(--mid);display:flex;align-items:center;gap:7px;}
+.sa{width:26px;height:26px;border-radius:50%;background:var(--mid);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);flex-shrink:0;}
+.content{background:var(--bg);overflow-y:auto;display:flex;flex-direction:column;}
+.screen{display:none;padding:16px 18px;flex:1;flex-direction:column;gap:12px;}
+.screen.active{display:flex;}
+.card{background:var(--card);border-radius:var(--rl);border:.5px solid var(--border);overflow:hidden;min-width:0;}
+.ch{padding:10px 14px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.ct{font-size:12px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:6px;}
+.ct i{font-size:14px;color:var(--accent);}
+.ca{font-size:11px;color:var(--accent);cursor:pointer;flex-shrink:0;}
+.cb{padding:12px 14px;}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.fg{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.fl{font-size:11px;font-weight:500;color:var(--text2);}
+.fh{font-size:10px;color:var(--text3);margin-top:2px;line-height:1.4;}
+.fi{padding:8px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--card);font-size:13px;color:var(--text);font-family:inherit;width:100%;}
+.fi.ocr{border-color:var(--accent);}
+.fs{padding:8px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--card);font-size:13px;color:var(--text);font-family:inherit;width:100%;appearance:none;cursor:pointer;}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit;}
+.btn.primary{color:#fff;background:var(--accent);}
+.btn.primary:hover{background:#00956A;}
+.btn.ghost{color:var(--text);border:.5px solid var(--border2);background:var(--card);}
+.btn.danger-ghost{color:var(--danger-d);border:.5px solid #F09595;background:var(--danger-l);}
+.section-head{background:var(--bg);padding:8px 14px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.section-label{font-size:11px;font-weight:500;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.section-label i{font-size:13px;color:var(--accent);}
+.section-link{font-size:11px;color:var(--accent);cursor:pointer;}
+.badge{font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;display:inline-block;}
+.badge.g{background:var(--accent-l);color:var(--accent-d);}
+.badge.y{background:var(--warn-l);color:var(--warn-d);}
+.badge.r{background:var(--danger-l);color:var(--danger-d);}
+.badge.b{background:#EEF0FB;color:#3949AB;}
+.lt-row{display:flex;gap:4px;}
+.lt{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:.5px solid var(--border);color:var(--text2);}
+.lt.active{background:var(--mid);color:#fff;border-color:var(--mid);}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
+.page-title{font-size:16px;font-weight:500;color:var(--text);}
+.page-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;margin-bottom:4px;}
+.two-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+.action-bar{display:flex;justify-content:flex-end;gap:8px;padding:12px 14px;background:var(--card);border-radius:var(--rl);border:.5px solid var(--border);flex-wrap:wrap;}
+.inv-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border);gap:8px;}
+.inv-row:last-child{border-bottom:none;}
+.inv-l{flex:1;min-width:0;}
+.inv-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.inv-meta{font-size:10px;color:var(--text3);margin-top:1px;}
+.inv-r{text-align:right;flex-shrink:0;}
+.inv-amt{font-size:13px;font-weight:500;}
+.li-header{display:grid;grid-template-columns:minmax(0,1fr) 65px 105px 75px 65px 28px;gap:8px;padding:6px 0;border-bottom:.5px solid var(--border);margin-bottom:2px;}
+.li-col{font-size:11px;font-weight:500;color:var(--text3);}
+.li-col.r{text-align:right;}
+.li-row{display:grid;grid-template-columns:minmax(0,1fr) 65px 105px 75px 65px 28px;gap:8px;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border);}
+.li-row:last-of-type{border-bottom:none;}
+.li-in{padding:6px 8px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--card);font-size:12px;color:var(--text);width:100%;font-family:inherit;}
+.li-sel{padding:6px 8px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--card);font-size:11px;color:var(--text);width:100%;font-family:inherit;appearance:none;cursor:pointer;}
+.li-total{font-size:13px;font-weight:500;text-align:right;}
+.li-del{width:26px;height:26px;border-radius:var(--r);background:var(--bg);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text3);font-size:13px;}
+.add-line{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--accent);cursor:pointer;margin-top:8px;padding:4px 0;}
+.totals{margin-top:8px;border-top:.5px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:4px;align-items:flex-end;}
+.tot-row{display:flex;justify-content:space-between;width:220px;}
+.tot-lbl{font-size:12px;color:var(--text2);}
+.tot-val{font-size:12px;color:var(--text);}
+.tot-row.grand{margin-top:5px;padding-top:7px;border-top:.5px solid var(--border2);}
+.tot-row.grand .tot-lbl{font-size:13px;font-weight:500;color:var(--text);}
+.tot-row.grand .tot-val{font-size:16px;font-weight:500;color:var(--accent);}
+.your-row{display:flex;align-items:center;gap:12px;padding:9px 12px;background:var(--bg);border-radius:var(--r);margin-bottom:10px;}
+.y-logo{width:36px;height:36px;border-radius:var(--r);background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#fff;flex-shrink:0;}
+.client-pill{display:flex;align-items:center;gap:9px;padding:9px 12px;background:#F0FBF7;border:.5px solid var(--accent);border-radius:var(--r);margin-bottom:10px;}
+.c-av{width:30px;height:30px;border-radius:50%;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--accent-d);flex-shrink:0;}
+.qr-strip{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:var(--r);gap:10px;}
+.qr-icon{width:30px;height:30px;border-radius:var(--r);background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--accent-d);flex-shrink:0;}
+.receipt-doc{background:var(--bg);border-radius:var(--r);padding:14px;}
+.r-vend{font-size:13px;font-weight:500;margin-bottom:1px;}
+.r-addr{font-size:10px;color:var(--text3);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.r-div{height:.5px;background:var(--border);margin:7px 0;}
+.r-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;gap:6px;}
+.r-row.b{font-weight:500;font-size:12px;}
+.r-l{color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.r-v{color:var(--text);flex-shrink:0;}
+.ocr-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;}
+.ob{display:flex;align-items:center;gap:3px;font-size:10px;font-weight:500;background:var(--accent-l);color:var(--accent-d);padding:3px 8px;border-radius:4px;white-space:nowrap;}
+.ai-box{background:var(--bg);border-radius:var(--r);padding:12px 14px;}
+.ai-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;gap:8px;}
+.ai-lbl{font-size:11px;font-weight:500;color:var(--text2);display:flex;align-items:center;gap:4px;}
+.ai-lbl i{font-size:13px;color:var(--accent);}
+.ai-conf{font-size:10px;font-weight:500;background:var(--accent-l);color:var(--accent-d);padding:2px 7px;border-radius:4px;}
+.ai-cat{font-size:14px;font-weight:500;margin-bottom:4px;}
+.ai-reason{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px;}
+.deduct-opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:8px;}
+.dc{padding:9px 7px;border-radius:var(--r);border:.5px solid var(--border);cursor:pointer;text-align:center;}
+.dc.sel{border-color:var(--accent);border-width:1.5px;background:#F0FBF7;}
+.dc-pct{font-size:15px;font-weight:500;color:var(--text);margin-bottom:2px;}
+.dc.sel .dc-pct{color:var(--accent);}
+.dc-lbl{font-size:10px;color:var(--text2);}
+.dc-amt{font-size:10px;font-weight:500;margin-top:3px;}
+.vat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border);gap:8px;}
+.vat-row:last-child{border-bottom:none;}
+.vl{font-size:12px;color:var(--text2);}
+.vv{font-size:12px;font-weight:500;flex-shrink:0;}
+.ocr-note{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--accent);margin-top:2px;}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--rl);padding:32px 20px;text-align:center;cursor:pointer;transition:all .15s;}
+.upload-zone:hover{border-color:var(--accent);background:#F0FBF7;}
+.info-box{display:flex;align-items:flex-start;gap:7px;padding:9px 11px;background:#F0FBF7;border-radius:var(--r);border:.5px solid #B7E4D0;margin-bottom:10px;}
+.info-box i{font-size:14px;color:var(--accent-d);flex-shrink:0;margin-top:1px;}
+.info-box-t{font-size:12px;color:var(--accent-d);line-height:1.5;}
+</style>
+
+<h2 class="sr-only">Settlo POC Session 2 — Invoice creation and expense upload flows</h2>
+
+<div class="app">
+  <div class="topbar">
+    <div class="t-logo"><div class="t-sq">S</div><div class="t-txt">Settlo</div></div>
+    <div class="t-nav">
+      <div class="t-item" onclick="nav('dashboard')">Dashboard</div>
+      <div class="t-item active" id="nav-invoices" onclick="nav('invoices')">Invoices</div>
+      <div class="t-item" id="nav-expenses" onclick="nav('expenses')">Expenses</div>
+      <div class="t-item" onclick="nav('tax')">Tax engine</div>
+      <div class="t-item" onclick="nav('ai')">Ask Settlo</div>
+    </div>
+    <div class="t-right">
+      <button class="t-btn ghost" onclick="nav('expenses-upload')"><i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Upload receipt</button>
+      <button class="t-btn primary" onclick="nav('invoice-new')"><i class="ti ti-plus" style="font-size:13px;" aria-hidden="true"></i> New invoice</button>
+      <i class="ti ti-bell" style="font-size:16px;color:#7B9BAD;" aria-hidden="true"></i>
+      <div class="t-avatar">AM</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="sidebar">
+      <div class="e-pill"><div style="min-width:0;"><div class="e-name">Anna Müller Consulting</div><div class="e-sub">Sole propr. · Zürich</div></div><i class="ti ti-selector" style="color:#7B9BAD;font-size:12px;flex-shrink:0;" aria-hidden="true"></i></div>
+      <div class="ns">Overview</div>
+      <div class="ni" onclick="nav('dashboard')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Dashboard</div>
+      <div class="ni active" id="sb-invoices" onclick="nav('invoices')"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoices <span class="nb">2</span></div>
+      <div class="ni" id="sb-expenses" onclick="nav('expenses')"><i class="ti ti-receipt" aria-hidden="true"></i> Expenses</div>
+      <div class="ns">Finance</div>
+      <div class="ni" onclick="nav('tax')"><i class="ti ti-chart-bar" aria-hidden="true"></i> Tax engine</div>
+      <div class="ni"><i class="ti ti-building-bank" aria-hidden="true"></i> Bank accounts</div>
+      <div class="ns">Support</div>
+      <div class="ni" onclick="nav('ai')"><i class="ti ti-message" aria-hidden="true"></i> Ask Settlo <span class="nb">1</span></div>
+      <div class="ni"><i class="ti ti-users" aria-hidden="true"></i> My accountant</div>
+      <div class="ni"><i class="ti ti-settings" aria-hidden="true"></i> Settings</div>
+      <div class="sf"><div class="sa">AM</div><div style="min-width:0;"><div style="font-size:11px;font-weight:500;color:#fff;">Anna Müller</div><div style="font-size:10px;color:#7B9BAD;">Pro · trial</div></div></div>
+    </div>
+
+    <div style="overflow:hidden;display:flex;flex-direction:column;flex:1;">
+
+      <!-- INVOICES LIST -->
+      <div class="screen active" id="screen-invoices">
+        <div class="page-header">
+          <div><div class="page-title">Invoices</div><div class="page-sub">4 invoices · CHF 18,600 total YTD</div></div>
+          <button class="btn primary" onclick="nav('invoice-new')"><i class="ti ti-plus" style="font-size:13px;" aria-hidden="true"></i> New invoice</button>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct"><i class="ti ti-file-invoice" aria-hidden="true"></i> All invoices</div></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 90px 90px 80px;gap:0;border-bottom:.5px solid var(--border);padding:7px 14px;background:var(--bg);">
+            <div style="font-size:11px;font-weight:500;color:var(--text3);">Client</div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);">Number</div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);">Due date</div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:right;">Amount</div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:center;">Status</div>
+          </div>
+          <div id="inv-list"></div>
+        </div>
+      </div>
+
+      <!-- NEW INVOICE -->
+      <div class="screen" id="screen-invoice-new">
+        <div class="back-btn" onclick="nav('invoices')"><i class="ti ti-arrow-left" style="font-size:13px;" aria-hidden="true"></i> Back to invoices</div>
+        <div class="page-header">
+          <div class="page-title">New invoice</div>
+          <div style="display:flex;gap:7px;">
+            <button class="btn ghost" onclick="saveInvDraft()"><i class="ti ti-device-floppy" style="font-size:13px;" aria-hidden="true"></i> Save draft</button>
+            <button class="btn ghost" id="preview-btn"><i class="ti ti-eye" style="font-size:13px;" aria-hidden="true"></i> Preview PDF</button>
+            <button class="btn primary" onclick="sendInvoice()"><i class="ti ti-send" style="font-size:13px;" aria-hidden="true"></i> Send invoice</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:760px;">
+          <div class="card">
+            <div class="section-head"><div class="section-label"><i class="ti ti-building" aria-hidden="true"></i> Your details</div><div class="section-link" style="display:flex;align-items:center;gap:3px;"><i class="ti ti-external-link" style="font-size:11px;" aria-hidden="true"></i> Edit in settings</div></div>
+            <div class="cb">
+              <div class="your-row"><div class="y-logo">AM</div><div><div style="font-size:13px;font-weight:500;">Anna Müller Consulting</div><div style="font-size:11px;color:var(--text3);margin-top:1px;">Dammstrasse 16, 6300 Zug · CHE-148.830.302 MWST · IBAN: CH02 0900 0000 1638 5793 1</div></div></div>
+              <div class="g2" style="margin-bottom:0;"><div class="fg"><div class="fl">Invoice template</div><select class="fs"><option>Professional (default)</option><option>Minimal</option></select></div><div class="fg"><div class="fl">Logo on invoice</div><select class="fs"><option>anna_logo.png</option><option>No logo</option></select></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head"><div class="section-label"><i class="ti ti-user" aria-hidden="true"></i> Bill to</div><div class="section-link">+ New client</div></div>
+            <div class="cb">
+              <div class="client-pill">
+                <div class="c-av">AC</div>
+                <div><div style="font-size:13px;font-weight:500;">Acme AG</div><div style="font-size:11px;color:var(--text3);">Av de Grancy 5, 1006 Lausanne · CHE-xxx.xxx.xxx</div></div>
+                <div style="margin-left:auto;font-size:11px;color:var(--accent);cursor:pointer;">Change</div>
+              </div>
+              <div class="g2" style="margin-bottom:0;"><div class="fg"><div class="fl">Reference / PO (optional)</div><input class="fi" placeholder="e.g. PO-2026-112"></div><div class="fg"><div class="fl">Additional info (optional)</div><input class="fi" placeholder="Project name, contract..."></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head"><div class="section-label"><i class="ti ti-file-description" aria-hidden="true"></i> Invoice details</div></div>
+            <div class="cb">
+              <div class="g4" style="margin-bottom:10px;">
+                <div class="fg"><div class="fl">Invoice number</div><input class="fi" id="inv-number" value="INV-2026-0042"><div class="fh">Auto-generated</div></div>
+                <div class="fg"><div class="fl">Issue date</div><input class="fi" type="date" id="inv-date" value="2026-06-02"></div>
+                <div class="fg"><div class="fl">Due date</div><input class="fi" type="date" id="inv-due" value="2026-06-17"></div>
+                <div class="fg"><div class="fl">Payment terms</div><select class="fs" id="inv-terms"><option value="15">15 days net</option><option value="30" selected>30 days net</option><option value="60">60 days net</option></select><div class="fh">Default from settings</div></div>
+              </div>
+              <div class="fg"><div class="fl">Invoice language</div><div class="lt-row"><div class="lt active" onclick="setLang(this)">EN</div><div class="lt" onclick="setLang(this)">DE</div><div class="lt" onclick="setLang(this)">FR</div><div class="lt" onclick="setLang(this)">IT</div></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head"><div class="section-label"><i class="ti ti-list" aria-hidden="true"></i> Line items</div></div>
+            <div class="cb">
+              <div class="li-header"><div class="li-col">Description</div><div class="li-col r">Qty</div><div class="li-col r">Unit price (CHF)</div><div class="li-col r">VAT</div><div class="li-col r">Total</div><div></div></div>
+              <div id="line-items"></div>
+              <div class="add-line" onclick="addLine()"><i class="ti ti-plus" style="font-size:13px;" aria-hidden="true"></i> Add line item</div>
+              <div class="totals" id="inv-totals"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head"><div class="section-label"><i class="ti ti-qrcode" aria-hidden="true"></i> Swiss QR-bill</div></div>
+            <div class="cb">
+              <div class="qr-strip">
+                <div style="display:flex;align-items:center;gap:9px;"><div class="qr-icon"><i class="ti ti-qrcode" aria-hidden="true"></i></div><div><div style="font-size:12px;font-weight:500;">QR payment slip appended to PDF automatically</div><div style="font-size:11px;color:var(--text3);margin-top:1px;">IBAN: CH02 0900 0000 1638 5793 1 · QR reference auto-generated · CHF</div></div></div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;"><div class="badge g" style="display:flex;align-items:center;gap:3px;"><i class="ti ti-circle-check" style="font-size:11px;" aria-hidden="true"></i> SIX compliant</div><div style="font-size:11px;color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:3px;"><i class="ti ti-external-link" style="font-size:11px;" aria-hidden="true"></i> Edit defaults</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head"><div class="section-label"><i class="ti ti-notes" aria-hidden="true"></i> Notes</div></div>
+            <div class="cb"><div class="g2" style="margin-bottom:0;"><div class="fg"><div class="fl">Note to client</div><textarea class="fi" rows="2" style="resize:none;">Payment within 30 days. Thank you for your business.</textarea><div class="fh">Visible on invoice</div></div><div class="fg"><div class="fl">Internal note</div><textarea class="fi" rows="2" placeholder="Private note..." style="resize:none;color:var(--text3);"></textarea></div></div></div>
+          </div>
+          <div class="action-bar">
+            <button class="btn danger-ghost" onclick="nav('invoices')"><i class="ti ti-trash" style="font-size:13px;" aria-hidden="true"></i> Discard</button>
+            <button class="btn ghost" onclick="saveInvDraft()"><i class="ti ti-device-floppy" style="font-size:13px;" aria-hidden="true"></i> Save draft</button>
+            <button class="btn ghost"><i class="ti ti-eye" style="font-size:13px;" aria-hidden="true"></i> Preview PDF</button>
+            <button class="btn primary" onclick="sendInvoice()"><i class="ti ti-send" style="font-size:13px;" aria-hidden="true"></i> Send invoice</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- INVOICE SENT SUCCESS -->
+      <div class="screen" id="screen-invoice-sent">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:20px;">
+          <div style="width:56px;height:56px;border-radius:50%;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--accent-d);margin-bottom:14px;"><i class="ti ti-circle-check" aria-hidden="true"></i></div>
+          <div style="font-size:18px;font-weight:500;margin-bottom:6px;">Invoice sent!</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:20px;" id="sent-summary">INV-2026-0042 sent to Acme AG · CHF 1,621.50</div>
+          <div style="background:var(--bg);border-radius:var(--rl);padding:14px 18px;width:100%;max-width:300px;text-align:left;margin-bottom:20px;" id="sent-details"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn ghost" onclick="nav('invoices')"><i class="ti ti-list" style="font-size:13px;" aria-hidden="true"></i> All invoices</button>
+            <button class="btn primary" onclick="nav('invoice-new')"><i class="ti ti-plus" style="font-size:13px;" aria-hidden="true"></i> New invoice</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXPENSES LIST -->
+      <div class="screen" id="screen-expenses">
+        <div class="page-header">
+          <div><div class="page-title">Expenses</div><div class="page-sub">4 expenses · CHF 3,449 total</div></div>
+          <button class="btn primary" onclick="nav('expenses-upload')"><i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Upload receipt</button>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct"><i class="ti ti-receipt" aria-hidden="true"></i> All expenses</div></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 80px 80px 90px;gap:0;border-bottom:.5px solid var(--border);padding:7px 14px;background:var(--bg);">
+            <div style="font-size:11px;font-weight:500;color:var(--text3);">Vendor</div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);">Category</div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);">Date</div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:right;">Amount</div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:center;">Deductible</div>
+          </div>
+          <div id="exp-list"></div>
+        </div>
+      </div>
+
+      <!-- EXPENSE UPLOAD -->
+      <div class="screen" id="screen-expenses-upload">
+        <div class="back-btn" onclick="nav('expenses')"><i class="ti ti-arrow-left" style="font-size:13px;" aria-hidden="true"></i> Back to expenses</div>
+        <div class="page-header">
+          <div class="page-title" id="upload-title">Upload receipt</div>
+          <div style="display:flex;gap:7px;" id="upload-actions-top" style="display:none;"></div>
+        </div>
+        <div id="upload-content"></div>
+      </div>
+
+      <!-- STUB SCREENS -->
+      <div class="screen" id="screen-dashboard">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;color:var(--text3);padding:20px;">
+          <i class="ti ti-layout-dashboard" style="font-size:32px;margin-bottom:10px;color:var(--accent);" aria-hidden="true"></i>
+          <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;">Dashboard</div>
+          <div style="font-size:12px;">Full interactive dashboard in Session 1 ↗</div>
+        </div>
+      </div>
+      <div class="screen" id="screen-tax">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;color:var(--text3);padding:20px;">
+          <i class="ti ti-chart-bar" style="font-size:32px;margin-bottom:10px;color:var(--accent);" aria-hidden="true"></i>
+          <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;">Tax engine</div>
+          <div style="font-size:12px;">Full tax calculation breakdown in Session 1 ↗</div>
+        </div>
+      </div>
+      <div class="screen" id="screen-ai">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;color:var(--text3);padding:20px;">
+          <i class="ti ti-message" style="font-size:32px;margin-bottom:10px;color:var(--accent);" aria-hidden="true"></i>
+          <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;">Ask Settlo AI</div>
+          <div style="font-size:12px;">Real AI assistant with Swiss tax context in Session 1 ↗</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const invoices = [
+  {id:'INV-2026-0042',client:'Acme AG',date:'2026-06-02',due:'2026-06-17',amount:1621.50,status:'draft',vat:121.50,subtotal:1500},
+  {id:'INV-2026-0041',client:'Acme AG',date:'2026-05-15',due:'2026-05-28',amount:4200,status:'pending',vat:0,subtotal:4200},
+  {id:'INV-2026-0040',client:'Helvetia Solutions',date:'2026-05-12',due:'2026-05-26',amount:8500,status:'paid',vat:0,subtotal:8500},
+  {id:'INV-2026-0039',client:'Zurich Tech GmbH',date:'2026-05-03',due:'2026-05-17',amount:3100,status:'paid',vat:0,subtotal:3100},
+  {id:'INV-2026-0038',client:'Berg & Partner AG',date:'2026-05-01',due:'2026-05-15',amount:2800,status:'overdue',vat:0,subtotal:2800}
+];
+
+const expenses = [
+  {id:1,vendor:'Apple MacBook Pro',cat:'Equipment',date:'2026-05-15',amount:2899,vat:23.70,deduct:100,status:'confirmed'},
+  {id:2,vendor:'SBB Travel — Basel',cat:'Travel',date:'2026-05-08',amount:84,vat:0,deduct:100,status:'confirmed'},
+  {id:3,vendor:'Client lunch · Zurich',cat:'Meals',date:'2026-05-03',amount:146,vat:0,deduct:50,status:'confirmed'},
+  {id:4,vendor:'Digitec receipt',cat:'Review needed',date:'2026-06-01',amount:320,vat:23.70,deduct:null,status:'review'}
+];
+
+const lineItems = [
+  {desc:'Hourly work — 2 June, 10:00–13:00',qty:'3h',price:500,vat:8.1}
+];
+
+const statusLabel = {draft:'Draft',pending:'Pending',paid:'Paid',overdue:'Overdue'};
+const statusClass = {draft:'b',pending:'y',paid:'g',overdue:'r'};
+
+function fmt(n){return 'CHF '+Number(n).toLocaleString('de-CH',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function renderInvoiceList(){
+  const el = document.getElementById('inv-list');
+  el.innerHTML = invoices.map(inv => `
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 90px 90px 80px;gap:0;border-bottom:.5px solid var(--border);padding:9px 14px;cursor:pointer;" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+      <div style="font-size:13px;font-weight:500;">${inv.client}</div>
+      <div style="font-size:12px;color:var(--text3);">${inv.id.slice(-4)}</div>
+      <div style="font-size:12px;color:var(--text3);">${inv.due}</div>
+      <div style="font-size:13px;font-weight:500;text-align:right;">${fmt(inv.amount)}</div>
+      <div style="text-align:center;"><div class="badge ${statusClass[inv.status]}">${statusLabel[inv.status]}</div></div>
+    </div>`).join('');
+}
+
+function renderExpenseList(){
+  const el = document.getElementById('exp-list');
+  el.innerHTML = expenses.map(e => `
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 80px 80px 90px;gap:0;border-bottom:.5px solid var(--border);padding:9px 14px;cursor:pointer;" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+      <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.vendor}</div>
+      <div style="font-size:12px;color:${e.status==='review'?'var(--warn-d)':'var(--text3)'};">${e.cat}</div>
+      <div style="font-size:12px;color:var(--text3);">${e.date}</div>
+      <div style="font-size:13px;font-weight:500;text-align:right;">${fmt(e.amount)}</div>
+      <div style="text-align:center;">${e.deduct===null?'<div class="badge y">?</div>':e.deduct===100?'<div class="badge g">100%</div>':'<div class="badge y">50%</div>'}</div>
+    </div>`).join('');
+}
+
+function renderLineItems(){
+  const el = document.getElementById('line-items');
+  el.innerHTML = lineItems.map((li,i) => {
+    const total = li.qty.replace('h','') * li.price;
+    const vatAmt = total * li.vat/100;
+    return `<div class="li-row">
+      <input class="li-in" value="${li.desc}" oninput="lineItems[${i}].desc=this.value">
+      <input class="li-in" value="${li.qty}" style="text-align:right;" oninput="lineItems[${i}].qty=this.value">
+      <input class="li-in" value="${li.price.toFixed(2)}" style="text-align:right;" oninput="lineItems[${i}].price=parseFloat(this.value)||0;calcTotals()">
+      <select class="li-sel" onchange="lineItems[${i}].vat=parseFloat(this.value);calcTotals()">
+        <option value="0"${li.vat===0?' selected':''}>0%</option>
+        <option value="2.6"${li.vat===2.6?' selected':''}>2.6%</option>
+        <option value="3.8"${li.vat===3.8?' selected':''}>3.8%</option>
+        <option value="8.1"${li.vat===8.1?' selected':''}>8.1%</option>
+      </select>
+      <div class="li-total">${fmt(total+vatAmt).replace('CHF ','')}</div>
+      <button class="li-del" onclick="lineItems.splice(${i},1);renderLineItems();calcTotals()"><i class="ti ti-trash" aria-hidden="true"></i></button>
+    </div>`;
+  }).join('');
+  const emptyRow = `<div class="li-row">
+    <input class="li-in" placeholder="Add description..." style="color:var(--text3);" oninput="addLineFromInput(this)">
+    <input class="li-in" placeholder="1" style="text-align:right;color:var(--text3);">
+    <input class="li-in" placeholder="0.00" style="text-align:right;color:var(--text3);">
+    <select class="li-sel" style="color:var(--text3);"><option>Select</option><option value="0">0%</option><option value="2.6">2.6%</option><option value="3.8">3.8%</option><option value="8.1">8.1%</option></select>
+    <div class="li-total" style="color:var(--text3);">—</div>
+    <button class="li-del" style="opacity:.3;"><i class="ti ti-trash" aria-hidden="true"></i></button>
+  </div>`;
+  el.innerHTML += emptyRow;
+  calcTotals();
+}
+
+function addLine(){
+  lineItems.push({desc:'',qty:'1',price:0,vat:8.1});
+  renderLineItems();
+}
+
+function addLineFromInput(input){
+  if(input.value.trim()){
+    lineItems.push({desc:input.value,qty:'1',price:0,vat:8.1});
+    renderLineItems();
+  }
+}
+
+function calcTotals(){
+  const el = document.getElementById('inv-totals');
+  const subtotal = lineItems.reduce((s,li)=>s+(parseFloat(li.qty)||1)*li.price,0);
+  const vatTotal = lineItems.reduce((s,li)=>s+(parseFloat(li.qty)||1)*li.price*li.vat/100,0);
+  const total = subtotal+vatTotal;
+  el.innerHTML = `
+    <div class="tot-row"><div class="tot-lbl">Subtotal</div><div class="tot-val">${fmt(subtotal)}</div></div>
+    ${vatTotal>0?`<div class="tot-row"><div class="tot-lbl">VAT</div><div class="tot-val">${fmt(vatTotal)}</div></div>`:''}
+    <div class="tot-row grand"><div class="tot-lbl">Total (CHF)</div><div class="tot-val">${fmt(total)}</div></div>`;
+}
+
+function setLang(el){
+  el.closest('.lt-row').querySelectorAll('.lt').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function saveInvDraft(){
+  const num = document.getElementById('inv-number').value;
+  showToast('Draft saved — '+num);
+}
+
+function sendInvoice(){
+  const num = document.getElementById('inv-number').value;
+  const subtotal = lineItems.reduce((s,li)=>s+(parseFloat(li.qty)||1)*li.price,0);
+  const vatTotal = lineItems.reduce((s,li)=>s+(parseFloat(li.qty)||1)*li.price*li.vat/100,0);
+  const total = subtotal+vatTotal;
+  const due = document.getElementById('inv-due').value;
+  invoices.unshift({id:num,client:'Acme AG',date:document.getElementById('inv-date').value,due,amount:total,status:'pending',vat:vatTotal,subtotal});
+  document.getElementById('sent-summary').textContent = num+' sent to Acme AG · '+fmt(total);
+  document.getElementById('sent-details').innerHTML = `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:500;">Confirmation</div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--border);"><span style="color:var(--text2);">Invoice</span><span style="font-weight:500;">${num}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--border);"><span style="color:var(--text2);">Client</span><span style="font-weight:500;">Acme AG</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--border);"><span style="color:var(--text2);">Due date</span><span style="font-weight:500;">${due}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;"><span style="color:var(--text2);">Total</span><span style="font-weight:500;color:var(--accent);">${fmt(total)}</span></div>`;
+  nav('invoice-sent');
+  renderInvoiceList();
+}
+
+let uploadState = 'idle';
+
+function renderUpload(){
+  const el = document.getElementById('upload-content');
+  if(uploadState==='idle'){
+    document.getElementById('upload-title').textContent = 'Upload receipt';
+    el.innerHTML = `
+      <div class="upload-zone" onclick="startOCR()">
+        <i class="ti ti-cloud-upload" style="font-size:36px;color:var(--accent);margin-bottom:10px;display:block;" aria-hidden="true"></i>
+        <div style="font-size:14px;font-weight:500;margin-bottom:4px;">Drop receipt here or click to upload</div>
+        <div style="font-size:12px;color:var(--text3);">PDF, JPG or PNG · max 10MB</div>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:8px;justify-content:center;"><div style="flex:1;height:.5px;background:var(--border);"></div><span style="font-size:12px;color:var(--text3);">or use a demo receipt</span><div style="flex:1;height:.5px;background:var(--border);"></div></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+          <button class="btn ghost" style="font-size:12px;" onclick="event.stopPropagation();loadDemo('digitec')"><i class="ti ti-device-laptop" style="font-size:12px;" aria-hidden="true"></i> Digitec (electronics)</button>
+          <button class="btn ghost" style="font-size:12px;" onclick="event.stopPropagation();loadDemo('sbb')"><i class="ti ti-train" style="font-size:12px;" aria-hidden="true"></i> SBB (travel)</button>
+          <button class="btn ghost" style="font-size:12px;" onclick="event.stopPropagation();loadDemo('resto')"><i class="ti ti-coffee" style="font-size:12px;" aria-hidden="true"></i> Restaurant (meal)</button>
+        </div>
+      </div>`;
+  } else if(uploadState==='processing'){
+    document.getElementById('upload-title').textContent = 'Processing receipt...';
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;">
+        <div style="width:48px;height:48px;border-radius:50%;border:3px solid var(--accent-l);border-top-color:var(--accent);margin-bottom:16px;" id="spinner"></div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:4px;">Reading your receipt...</div>
+        <div style="font-size:12px;color:var(--text3);" id="ocr-status">Extracting vendor name...</div>
+      </div>`;
+    let msgs = ['Extracting vendor name...','Reading amount and VAT...','Detecting date...','Running AI categorization...','Almost done...'];
+    let i=0;
+    const iv = setInterval(()=>{
+      const s = document.getElementById('ocr-status');
+      if(s) s.textContent = msgs[Math.min(i,msgs.length-1)];
+      i++;
+      if(i>=msgs.length){clearInterval(iv);uploadState='review';renderUpload();}
+    },500);
+  } else if(uploadState==='review'){
+    document.getElementById('upload-title').textContent = 'Review expense';
+    const d = currentDemo;
+    el.innerHTML = `
+      <div class="two-col" style="align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="card">
+            <div class="ch"><div class="ct"><i class="ti ti-file-text" aria-hidden="true"></i> Uploaded receipt</div><div style="display:flex;align-items:center;gap:7px;"><div class="badge g" style="display:flex;align-items:center;gap:3px;"><i class="ti ti-scan" style="font-size:11px;" aria-hidden="true"></i> OCR complete</div><div style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="uploadState='idle';renderUpload()">Replace</div></div></div>
+            <div class="cb">
+              <div class="receipt-doc">
+                <div class="r-vend">${d.vendor}</div>
+                <div class="r-addr">${d.address}</div>
+                <div class="r-div"></div>
+                ${d.items.map(it=>`<div class="r-row"><div class="r-l">${it.name}</div><div class="r-v">CHF ${it.price.toFixed(2)}</div></div>`).join('')}
+                <div class="r-div"></div>
+                <div class="r-row"><div class="r-l">Subtotal</div><div class="r-v">CHF ${d.subtotal.toFixed(2)}</div></div>
+                ${d.vat>0?`<div class="r-row"><div class="r-l">VAT ${d.vatRate}%</div><div class="r-v">CHF ${d.vat.toFixed(2)}</div></div>`:''}
+                <div class="r-row b"><div class="r-l">Total</div><div class="r-v">CHF ${d.total.toFixed(2)}</div></div>
+              </div>
+              <div class="ocr-badges">
+                <div class="ob"><i class="ti ti-circle-check" style="font-size:11px;" aria-hidden="true"></i> Vendor</div>
+                <div class="ob"><i class="ti ti-circle-check" style="font-size:11px;" aria-hidden="true"></i> Amount</div>
+                ${d.vat>0?'<div class="ob"><i class="ti ti-circle-check" style="font-size:11px;" aria-hidden="true"></i> VAT</div>':''}
+                <div class="ob"><i class="ti ti-circle-check" style="font-size:11px;" aria-hidden="true"></i> Date</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><div class="ct"><i class="ti ti-percentage" aria-hidden="true"></i> VAT</div><div style="font-size:10px;color:var(--text3);">Detected by OCR</div></div>
+            <div class="cb">
+              <div class="vat-row"><div class="vl">VAT rate</div><div><div class="badge g">${d.vatRate}% ${d.vatRate===8.1?'standard':d.vatRate===2.6?'reduced':'special'}</div></div></div>
+              <div class="vat-row"><div class="vl">VAT amount</div><div class="vv">CHF ${d.vat.toFixed(2)}</div></div>
+              <div class="vat-row"><div class="vl">Net amount</div><div class="vv">CHF ${d.subtotal.toFixed(2)}</div></div>
+              <div class="vat-row"><div class="vl">Input deduction</div><div style="font-size:11px;color:var(--text3);">Not VAT registered</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><div class="ct"><i class="ti ti-receipt-tax" aria-hidden="true"></i> Deductibility</div><div style="font-size:10px;color:var(--text3);">AI suggests ${d.deduct}%</div></div>
+            <div class="cb">
+              <div class="deduct-opts" id="deduct-opts">
+                <div class="dc ${d.deduct===100?'sel':''}" onclick="setDeduct(this,100)"><div class="dc-pct">100%</div><div class="dc-lbl">Fully deductible</div><div class="dc-amt" style="color:var(--accent);">CHF ${d.total.toFixed(2)}</div></div>
+                <div class="dc ${d.deduct===50?'sel':''}" onclick="setDeduct(this,50)"><div class="dc-pct">50%</div><div class="dc-lbl">Partial use</div><div class="dc-amt" style="color:var(--text3);">CHF ${(d.total*.5).toFixed(2)}</div></div>
+                <div class="dc ${d.deduct===0?'sel':''}" onclick="setDeduct(this,0)"><div class="dc-pct">0%</div><div class="dc-lbl">Not deductible</div><div class="dc-amt" style="color:var(--text3);">CHF 0.00</div></div>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:5px;font-size:11px;color:var(--text3);"><i class="ti ti-info-circle" style="font-size:13px;flex-shrink:0;margin-top:1px;" aria-hidden="true"></i>${d.deductNote}</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="card">
+            <div class="ch"><div class="ct"><i class="ti ti-scan" aria-hidden="true"></i> Extracted data</div><div style="font-size:10px;color:var(--text3);">Green border = OCR</div></div>
+            <div class="cb">
+              <div class="g2">
+                <div class="fg"><div class="fl">Vendor</div><input class="fi ocr" value="${d.vendor}"><div class="ocr-note"><i class="ti ti-sparkles" style="font-size:11px;" aria-hidden="true"></i> Filled by OCR</div></div>
+                <div class="fg"><div class="fl">Date</div><input class="fi ocr" value="${d.date}"><div class="ocr-note"><i class="ti ti-sparkles" style="font-size:11px;" aria-hidden="true"></i> Filled by OCR</div></div>
+                <div class="fg"><div class="fl">Total amount</div><input class="fi ocr" value="CHF ${d.total.toFixed(2)}"><div class="ocr-note"><i class="ti ti-sparkles" style="font-size:11px;" aria-hidden="true"></i> Filled by OCR</div></div>
+                <div class="fg"><div class="fl">Description (optional)</div><input class="fi" value="${d.description}" placeholder="Add description..."></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><div class="ct"><i class="ti ti-sparkles" aria-hidden="true"></i> AI categorization</div></div>
+            <div class="cb">
+              <div class="ai-box">
+                <div class="ai-head"><div class="ai-lbl"><i class="ti ti-cpu" aria-hidden="true"></i> Settlo AI suggestion</div><div class="ai-conf">${d.aiConf}% confidence</div></div>
+                <div class="ai-cat">${d.category}</div>
+                <div class="ai-reason">${d.aiReason}</div>
+                <div style="display:flex;gap:7px;">
+                  <button class="btn primary" style="font-size:12px;padding:5px 12px;" onclick="confirmExpense()"><i class="ti ti-check" style="font-size:12px;" aria-hidden="true"></i> Accept</button>
+                  <button class="btn ghost" style="font-size:12px;padding:5px 12px;"><i class="ti ti-edit" style="font-size:12px;" aria-hidden="true"></i> Change category</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="action-bar">
+            <button class="btn ghost" onclick="nav('ai')"><i class="ti ti-message" style="font-size:13px;" aria-hidden="true"></i> Ask accountant</button>
+            <button class="btn ghost"><i class="ti ti-device-floppy" style="font-size:13px;" aria-hidden="true"></i> Save draft</button>
+            <button class="btn primary" onclick="confirmExpense()"><i class="ti ti-check" style="font-size:13px;" aria-hidden="true"></i> Confirm expense</button>
+          </div>
+        </div>
+      </div>`;
+  } else if(uploadState==='confirmed'){
+    document.getElementById('upload-title').textContent = 'Expense saved';
+    const d = currentDemo;
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:30px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--accent-d);margin-bottom:12px;"><i class="ti ti-circle-check" aria-hidden="true"></i></div>
+        <div style="font-size:16px;font-weight:500;margin-bottom:4px;">Expense confirmed!</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">${d.vendor} · CHF ${d.total.toFixed(2)} · ${d.category}</div>
+        <div style="background:var(--bg);border-radius:var(--rl);padding:12px 16px;max-width:280px;width:100%;text-align:left;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--border);"><span style="color:var(--text2);">Amount</span><span style="font-weight:500;">CHF ${d.total.toFixed(2)}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--border);"><span style="color:var(--text2);">Category</span><span style="font-weight:500;">${d.category}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--border);"><span style="color:var(--text2);">Deductible</span><span style="font-weight:500;color:var(--accent);">${d.deduct}% · CHF ${(d.total*d.deduct/100).toFixed(2)}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;"><span style="color:var(--text2);">VAT</span><span style="font-weight:500;">CHF ${d.vat.toFixed(2)}</span></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn ghost" onclick="nav('expenses')"><i class="ti ti-list" style="font-size:13px;" aria-hidden="true"></i> All expenses</button>
+          <button class="btn primary" onclick="uploadState='idle';renderUpload()"><i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Upload another</button>
+        </div>
+      </div>`;
+  }
+}
+
+function setDeduct(el,pct){
+  document.querySelectorAll('.dc').forEach(d=>d.classList.remove('sel'));
+  el.classList.add('sel');
+  currentDemo.deduct = pct;
+}
+
+const demos = {
+  digitec:{
+    vendor:'Digitec Galaxus AG',address:'Pfingstweidstrasse 60b, 8005 Zürich · CHE-107.897.439',
+    items:[{name:'Logitech MX Keys keyboard',price:159},{name:'USB-C Hub 7-port',price:49},{name:'Webcam HD Pro',price:112}],
+    subtotal:296.30,vat:23.70,vatRate:8.1,total:320,date:'01.06.2026',
+    category:'Office equipment & peripherals',
+    description:'Keyboard, hub, webcam',
+    aiConf:94,deduct:100,
+    aiReason:'Digitec is an electronics retailer. Keyboard, hub and webcam are standard business peripherals, based on 847 similar expenses categorized by Swiss accountants.',
+    deductNote:'Office equipment for exclusive business use is fully deductible under Swiss tax law.'
+  },
+  sbb:{
+    vendor:'SBB CFF FFS',address:'Bundesplatz 2, 3000 Bern · CHE-106.222.470',
+    items:[{name:'GA Tagespass Basel–Zürich',price:84}],
+    subtotal:84,vat:0,vatRate:0,total:84,date:'02.06.2026',
+    category:'Business travel',
+    description:'Client meeting Basel',
+    aiConf:97,deduct:100,
+    aiReason:'SBB is Switzerland\'s national railway. Train ticket for business travel is 100% deductible. Based on 1,204 similar expenses.',
+    deductNote:'Business travel by public transport is fully deductible under Swiss tax law.'
+  },
+  resto:{
+    vendor:'Restaurant Kronenhalle',address:'Rämistrasse 4, 8001 Zürich · CHE-112.445.890',
+    items:[{name:'Business lunch — 2 persons',price:127.20}],
+    subtotal:127.20,vat:0,vatRate:0,total:127.20,date:'02.06.2026',
+    category:'Business meals',
+    description:'Client lunch',
+    aiConf:88,deduct:50,
+    aiReason:'Restaurant expense likely a business meal. Swiss tax law limits meal deductibility to 50% unless full business documentation is provided.',
+    deductNote:'Business meals are 50% deductible. Keep receipt with guest names and business purpose noted.'
+  }
+};
+
+let currentDemo = demos.digitec;
+
+function loadDemo(type){
+  currentDemo = {...demos[type]};
+  startOCR();
+}
+
+function startOCR(){
+  uploadState = 'processing';
+  renderUpload();
+}
+
+function confirmExpense(){
+  const d = currentDemo;
+  expenses.unshift({id:Date.now(),vendor:d.vendor,cat:d.category,date:d.date,amount:d.total,vat:d.vat,deduct:d.deduct,status:'confirmed'});
+  uploadState = 'confirmed';
+  renderUpload();
+  renderExpenseList();
+}
+
+function showToast(msg){
+  const t = document.createElement('div');
+  t.style.cssText = 'position:absolute;bottom:16px;right:16px;background:#0D1F2D;color:#fff;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;z-index:9999;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2500);
+}
+
+function nav(screen){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById('screen-'+screen);
+  if(el) el.classList.add('active');
+  ['invoices','expenses'].forEach(s=>{
+    const nb = document.getElementById('nav-'+s);
+    const sb = document.getElementById('sb-'+s);
+    const active = screen===s||screen===s+'-upload'||screen===s+'-new'||screen===s+'-sent';
+    if(nb) nb.classList.toggle('active',active);
+    if(sb) sb.classList.toggle('active',active);
+  });
+  if(screen==='expenses-upload'){uploadState='idle';renderUpload();}
+}
+
+renderInvoiceList();
+renderExpenseList();
+renderLineItems();
+</script>

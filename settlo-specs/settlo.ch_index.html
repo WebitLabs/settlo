@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Settlo — Your business, settled. Die Schweizer Plattform für Selbstständigerwerbende. Bald verfügbar.">
+<meta property="og:title" content="Settlo — Your business, settled.">
+<meta property="og:description" content="Die smarte Schweizer Plattform für Selbstständige. Bald verfügbar.">
+<meta property="og:image" content="https://settlo.ch/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<title>Settlo — Your business, settled.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --dark:    #0D1F2D;
+    --mid:     #1A3344;
+    --accent:  #00A878;
+    --accentL: #D4F0E8;
+    --muted:   #7B9BAD;
+    --t3:      #9CA3AF;
+    --white:   #FFFFFF;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--dark);
+    color: var(--white);
+    overflow-x: hidden;
+  }
+
+  /* ── BACKGROUND ───────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0,168,120,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 90% 80%, rgba(0,168,120,0.08) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── GRID LINES ──────────────────────────────── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── LAYOUT ──────────────────────────────────── */
+  .page {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    gap: 0;
+  }
+
+  /* ── LANG SWITCHER ───────────────────────────── */
+  .lang-bar {
+    position: fixed;
+    top: 24px;
+    right: 28px;
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+  }
+  .lang-btn {
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 0.5px solid rgba(255,255,255,0.12);
+    background: transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.04em;
+  }
+  .lang-btn:hover { color: var(--white); border-color: rgba(255,255,255,0.25); }
+  .lang-btn.active {
+    background: rgba(0,168,120,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── LOGO MARK ───────────────────────────────── */
+  .mark-wrap {
+    margin-bottom: 36px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.1s forwards;
+  }
+  .mark {
+    width: 80px;
+    height: 80px;
+    background: var(--accent);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 60px rgba(0,168,120,0.35), 0 4px 24px rgba(0,0,0,0.4);
+  }
+  .mark svg { width: 46px; height: 46px; }
+
+  /* ── WORDMARK ─────────────────────────────────── */
+  .wordmark {
+    font-size: clamp(48px, 10vw, 80px);
+    font-weight: 600;
+    letter-spacing: -2px;
+    line-height: 1;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.25s forwards;
+  }
+
+  /* ── TAGLINE ──────────────────────────────────── */
+  .tagline {
+    font-size: clamp(13px, 2vw, 16px);
+    font-weight: 400;
+    color: var(--accent);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 52px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.35s forwards;
+  }
+
+  /* ── HEADLINE ─────────────────────────────────── */
+  .headline {
+    font-size: clamp(22px, 4vw, 36px);
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.3;
+    max-width: 640px;
+    letter-spacing: -0.3px;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.45s forwards;
+  }
+  .headline em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  /* ── SUBHEADLINE ─────────────────────────────── */
+  .sub {
+    font-size: clamp(14px, 2vw, 18px);
+    font-weight: 300;
+    color: var(--muted);
+    text-align: center;
+    max-width: 520px;
+    line-height: 1.6;
+    margin-bottom: 60px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.55s forwards;
+  }
+
+  /* ── COMING SOON PILL ────────────────────────── */
+  .coming-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    border-radius: 100px;
+    border: 1px solid rgba(0,168,120,0.4);
+    background: rgba(0,168,120,0.08);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    margin-bottom: 80px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.65s forwards, pulse 3s ease-in-out 1.5s infinite;
+  }
+  .pill-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.8s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,168,120,0); }
+    50% { box-shadow: 0 0 0 8px rgba(0,168,120,0.06); }
+  }
+
+  /* ── EMAIL SIGNUP ────────────────────────────── */
+  .notify-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 440px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.75s forwards;
+    margin-bottom: 72px;
+  }
+  .notify-label {
+    font-size: 13px;
+    color: var(--t3);
+    letter-spacing: 0.04em;
+  }
+  .notify-form {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+  }
+  .notify-input {
+    flex: 1;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 0.5px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    color: var(--white);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border 0.2s, background 0.2s;
+    backdrop-filter: blur(10px);
+  }
+  .notify-input::placeholder { color: var(--muted); }
+  .notify-input:focus {
+    border-color: var(--accent);
+    background: rgba(0,168,120,0.06);
+  }
+  .notify-btn {
+    padding: 14px 22px;
+    border-radius: 12px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .notify-btn:hover { background: #00956A; }
+  .notify-btn:active { transform: scale(0.98); }
+  .notify-success {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .notify-success svg { flex-shrink: 0; }
+
+  /* ── FEATURES STRIP ──────────────────────────── */
+  .features {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 680px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.9s forwards;
+    margin-bottom: 60px;
+  }
+  .feat {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 0.5px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .feat-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  /* ── FOOTER ──────────────────────────────────── */
+  .footer {
+    font-size: 12px;
+    color: rgba(123,155,173,0.5);
+    text-align: center;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 1s forwards;
+    letter-spacing: 0.04em;
+  }
+  .footer a { color: inherit; text-decoration: none; }
+  .footer a:hover { color: var(--muted); }
+
+  /* ── ANIMATIONS ──────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── LANGUAGE CONTENT ────────────────────────── */
+  [data-lang] { display: none; }
+  [data-lang].active { display: block; }
+  .inline-lang { display: none; }
+  .inline-lang.active { display: inline; }
+
+  /* ── RESPONSIVE ──────────────────────────────── */
+  @media (max-width: 480px) {
+    .notify-form { flex-direction: column; }
+    .notify-btn { width: 100%; text-align: center; }
+    .features { gap: 8px; }
+    .feat { font-size: 12px; padding: 7px 13px; }
+    .lang-bar { top: 16px; right: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LANG SWITCHER -->
+<nav class="lang-bar" aria-label="Language selector">
+  <button class="lang-btn active" onclick="setLang('de')" aria-label="Deutsch">DE</button>
+  <button class="lang-btn" onclick="setLang('fr')" aria-label="Français">FR</button>
+  <button class="lang-btn" onclick="setLang('it')" aria-label="Italiano">IT</button>
+  <button class="lang-btn" onclick="setLang('en')" aria-label="English">EN</button>
+</nav>
+
+<main class="page">
+
+  <!-- MARK -->
+  <div class="mark-wrap" aria-hidden="true">
+    <div class="mark">
+      <svg viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <polyline points="7,23 18,35 40,11"
+          stroke="white" stroke-width="5.5"
+          stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- WORDMARK -->
+  <h1 class="wordmark">settlo</h1>
+
+  <!-- TAGLINE -->
+  <p class="tagline">Your business, settled.</p>
+
+  <!-- HEADLINE -->
+  <p class="headline">
+    <span data-lang="de" class="active">Die smarte Plattform für <em>Selbstständige</em> in der Schweiz.</span>
+    <span data-lang="fr">La plateforme intelligente pour les <em>indépendants</em> en Suisse.</span>
+    <span data-lang="it">La piattaforma intelligente per i <em>lavoratori autonomi</em> in Svizzera.</span>
+    <span data-lang="en">The smart platform for <em>self-employed</em> professionals in Switzerland.</span>
+  </p>
+
+  <!-- SUBHEADLINE -->
+  <p class="sub">
+    <span data-lang="de" class="active">Rechnungen, Ausgaben, AHV und Steuern — alles an einem Ort. Mit KI-Unterstützung und einem echten Schweizer Treuhänder auf Abruf.</span>
+    <span data-lang="fr">Factures, dépenses, AVS et impôts — tout en un seul endroit. Avec l'IA et un fiduciaire suisse agréé à la demande.</span>
+    <span data-lang="it">Fatture, spese, AVS e imposte — tutto in un unico posto. Con intelligenza artificiale e un fiduciario svizzero certificato su richiesta.</span>
+    <span data-lang="en">Invoices, expenses, AHV and taxes — all in one place. With AI assistance and a certified Swiss accountant on demand.</span>
+  </p>
+
+  <!-- COMING SOON PILL -->
+  <div class="coming-pill" role="status" aria-live="polite">
+    <span class="pill-dot" aria-hidden="true"></span>
+    <span data-lang="de" class="active">Bald verfügbar</span>
+    <span data-lang="fr">Bientôt disponible</span>
+    <span data-lang="it">Disponibile presto</span>
+    <span data-lang="en">Coming soon</span>
+  </div>
+
+  <!-- EMAIL NOTIFY -->
+  <div class="notify-wrap">
+    <p class="notify-label">
+      <span data-lang="de" class="active">Benachrichtigt werden, wenn wir starten</span>
+      <span data-lang="fr">Être notifié au lancement</span>
+      <span data-lang="it">Ricevi una notifica al lancio</span>
+      <span data-lang="en">Get notified when we launch</span>
+    </p>
+    <div class="notify-form" id="notify-form">
+      <input
+        class="notify-input"
+        type="email"
+        id="email-input"
+        autocomplete="email"
+        placeholder="name@example.com"
+        aria-label="Email address"
+      >
+      <button class="notify-btn" onclick="handleSubmit()" id="notify-btn">
+        <span data-lang="de" class="active">Benachrichtigen</span>
+        <span data-lang="fr">Me notifier</span>
+        <span data-lang="it">Notificami</span>
+        <span data-lang="en">Notify me</span>
+      </button>
+    </div>
+    <div class="notify-success" id="notify-success" role="status" aria-live="polite">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <rect width="18" height="18" rx="5" fill="#00A878"/>
+        <polyline points="4,9 7.5,12.5 14,5.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span data-lang="de" class="active">Danke! Wir melden uns.</span>
+      <span data-lang="fr">Merci ! On vous contacte.</span>
+      <span data-lang="it">Grazie! Ci faremo vivi.</span>
+      <span data-lang="en">Thanks! We'll be in touch.</span>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="features" aria-label="Features">
+    <div class="feat">
+      <span class="feat-dot" aria-hidden="true"></span>
+      <span data-lang="de" class="active">QR-Rechnung</span>
+      <span data-lang="fr">Facture QR</span>
+      <span data-lang="it">Fattura QR</span>
+      <span data-lang="en">Swiss QR invoice</span>
+    </div>
+    <div class="feat">
+      <span class="feat-dot" aria-hidden="true"></span>
+      <span data-lang="de" class="active">AHV / IV / EO</span>
+      <span data-lang="fr">AVS / AI / APG</span>
+      <span data-lang="it">AVS / AI / IPG</span>
+      <span data-lang="en">AHV / IV / EO</span>
+    </div>
+    <div class="feat">
+      <span class="feat-dot" aria-hidden="true"></span>
+      <span data-lang="de" class="active">Kantonssteuer</span>
+      <span data-lang="fr">Impôt cantonal</span>
+      <span data-lang="it">Imposta cantonale</span>
+      <span data-lang="en">Canton tax engine</span>
+    </div>
+    <div class="feat">
+      <span class="feat-dot" aria-hidden="true"></span>
+      <span data-lang="de" class="active">MWST-Tracking</span>
+      <span data-lang="fr">Suivi TVA</span>
+      <span data-lang="it">Monitoraggio IVA</span>
+      <span data-lang="en">VAT threshold tracker</span>
+    </div>
+    <div class="feat">
+      <span class="feat-dot" aria-hidden="true"></span>
+      <span data-lang="de" class="active">Treuhänder auf Abruf</span>
+      <span data-lang="fr">Fiduciaire à la demande</span>
+      <span data-lang="it">Fiduciario su richiesta</span>
+      <span data-lang="en">Accountant on demand</span>
+    </div>
+    <div class="feat">
+      <span class="feat-dot" aria-hidden="true"></span>
+      <span data-lang="de" class="active">KI-Assistent</span>
+      <span data-lang="fr">Assistant IA</span>
+      <span data-lang="it">Assistente AI</span>
+      <span data-lang="en">AI assistant</span>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p>
+      © 2026 Settlo AG &nbsp;·&nbsp;
+      <a href="mailto:hello@settlo.ch">hello@settlo.ch</a>
+      &nbsp;·&nbsp; settlo.ch
+    </p>
+  </footer>
+
+</main>
+
+<script>
+  // ── LANGUAGE SWITCH ────────────────────────────────────
+  let currentLang = 'de';
+
+  function setLang(lang) {
+    currentLang = lang;
+    document.documentElement.lang = lang;
+
+    // Update buttons
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === lang);
+    });
+
+    // Update content
+    document.querySelectorAll('[data-lang]').forEach(el => {
+      el.classList.toggle('active', el.dataset.lang === lang);
+    });
+
+    // Update input placeholder
+    const placeholders = {
+      de: 'name@beispiel.ch',
+      fr: 'prenom@exemple.ch',
+      it: 'nome@esempio.ch',
+      en: 'name@example.com',
+    };
+    document.getElementById('email-input').placeholder = placeholders[lang] || 'name@example.com';
+  }
+
+  // ── EMAIL SUBMIT ────────────────────────────────────────
+  function handleSubmit() {
+    const input = document.getElementById('email-input');
+    const email = input.value.trim();
+
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      input.focus();
+      input.style.borderColor = '#E24B4A';
+      input.style.boxShadow = '0 0 0 3px rgba(226,75,74,0.15)';
+      setTimeout(() => {
+        input.style.borderColor = '';
+        input.style.boxShadow = '';
+      }, 1600);
+      return;
+    }
+
+    const btn = document.getElementById('notify-btn');
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+
+    // Mailchimp JSONP submission (works cross-origin without a server)
+    const MC_URL = 'https://settlo.us10.list-manage.com/subscribe/post-json?u=431e3fc2a7fefadbbb0071f22&id=4e76360dde&f_id=00918ee0f0';
+    const src = MC_URL + '&EMAIL=' + encodeURIComponent(email) + '&b_431e3fc2a7fefadbbb0071f22_4e76360dde=&c=mcCallback';
+
+    window.mcCallback = function() { showSuccess(); };
+
+    const s = document.createElement('script');
+    s.src = src;
+    s.onerror = function() { showSuccess(); };
+    document.head.appendChild(s);
+
+    // Fallback: if JSONP blocked by adblocker, show success after 1.5s anyway
+    setTimeout(showSuccess, 1500);
+  }
+
+  function showSuccess() {
+    const form = document.getElementById('notify-form');
+    if (!form || form.style.display === 'none') return;
+    form.style.display = 'none';
+    document.getElementById('notify-success').style.display = 'flex';
+  }
+
+  document.getElementById('email-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handleSubmit();
+  });
+
+  // ── AUTO-DETECT BROWSER LANG ───────────────────────────
+  (function() {
+    const browserLang = navigator.language ? navigator.language.slice(0, 2).toLowerCase() : 'de';
+    const supported = ['de', 'fr', 'it', 'en'];
+    if (supported.includes(browserLang)) setLang(browserLang);
+  })();
+</script>
+
+</body>
+</html>
