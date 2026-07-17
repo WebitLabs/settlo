@@ -2,7 +2,7 @@
 
 Living document. Updated after every phase. Specs live in `settlo-specs/`.
 
-## Status: IN PROGRESS
+## Status: READY — all phases complete, 216 tests passing (748 assertions)
 
 ## Done
 
@@ -18,13 +18,15 @@ Living document. Updated after every phase. Specs live in `settlo-specs/`.
 | 5 UI | `d8518f7` | Dashboard widgets (BusinessOverview stats, RecentInvoices), `/tax` page with breakdown + canton comparison, plan-gated |
 | 6 Ask Settlo | `71e7f0a` + `f233c42` | 3-pane Inertia chat (SSE streaming + fallback), per-call context assembly (canton/revenue/VAT/profile → `context_snapshot`), escalations with atomic quota consumption + simulated accountant answer on `ai` queue + broadcast, dashboard preview widget, demo seeds. Engine: **Gemini** (`GeminiChatResponder`, same `GEMINI_API_KEY` as OCR; fake responder when key empty) |
 | 7 Firm panel | `20be417` | Read-only client books behind active-assignment policies, escalation queue (claim/answer/KB capture/SLA), hashed-token client invitations + accept flow, member management, firm dashboard widgets, settings |
+| 8 Superadmin | `f7d201c` | AuditLogger + append-only viewer, impersonation with cross-panel banner + audit trail, user/entity/firm/plan/subscription/payment resources, effective-dated tax-config editing, MRR/growth/plan-mix/ops metrics, KB approval + escalation oversight |
+| 9 Onboarding + polish | `4172ba5` | Registration + 5-step tenant onboarding wizard (IBAN mod-97 validation, trial start), business settings, bank accounts, tax-breakdown/VAT-progress/to-do widgets, proactive VAT alerts, per-rate VAT breakdown (form+PDF), DE/FR/IT/EN invoice PDF, invoice view page, expense VAT summary |
+| Review hardening | `d570748` | Final adversarial review (4 auditors + refuter verification): chat rate limiting, transactional escalation credit spend, firm-membership answer authorization, atomic claim, resolve guard, horizon snapshot schedule, VAT zero-threshold guard |
 
-Tests: 124 passing. Queue: Horizon (Redis, port 6380). OCR: Gemini (`GEMINI_API_KEY` in `.env`, empty → FakeExtractor). Real-time: Reverb + Filament DB notifications + table polling.
+Tests: 216 passing (748 assertions). Demo logins (all password `password`): `anna@test.ch` (owner, /app), `maria@test.ch` (accountant, /firm), `admin@settlo.ch` (superadmin, /admin). Queue: Horizon (Redis, port 6380). OCR: Gemini (`GEMINI_API_KEY` in `.env`, empty → FakeExtractor). Real-time: Reverb + Filament DB notifications + table polling.
 
 ## Remaining
 
-- **Phase 8 — Superadmin**: CRUD resources, tax-config management, MRR/growth/SLA dashboards, impersonation + audit trail.
-- **Phase 9 — Polish**: onboarding wizard, settings pages, VAT alert banner, invoice/expense polish, full test pass, pint, npm build.
+Nothing in POC scope. Deferred (Later bucket, see GAP_ANALYSIS.md L1–L7): real Stripe, multi-currency/exchange rates, RAG knowledge-base retrieval into AI context, invoice dunning, production firm↔owner escalation routing beyond the demo, demo receipt shortcuts, Form 300 document export.
 
 ## Gap analysis
 
