@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Billing\DummyGateway;
 use App\Billing\PaymentGateway;
+use App\Services\Ai\AnthropicResponder;
+use App\Services\Ai\ChatResponder;
+use App\Services\Ai\FakeAskSettloResponder;
 use App\Services\Extraction\FakeExtractor;
 use App\Services\Extraction\GeminiExtractor;
 use App\Services\Extraction\ReceiptExtractor;
@@ -36,6 +39,23 @@ class AppServiceProvider extends ServiceProvider
                 apiKey: $key,
                 model: config('services.gemini.model'),
                 endpoint: config('services.gemini.endpoint'),
+            );
+        });
+
+        // Ask Settlo chat uses the Anthropic Messages API when a key is
+        // configured, and a deterministic fake otherwise (tests, local).
+        $this->app->bind(ChatResponder::class, function ($app): ChatResponder {
+            $key = config('settlo.anthropic.api_key');
+
+            if (blank($key)) {
+                return new FakeAskSettloResponder;
+            }
+
+            return new AnthropicResponder(
+                http: $app->make(HttpFactory::class),
+                apiKey: $key,
+                model: config('settlo.anthropic.model'),
+                maxTokens: (int) config('settlo.anthropic.max_tokens'),
             );
         });
     }

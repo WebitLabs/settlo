@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Enums\AiEscalationStatus;
+use App\Enums\AiQuestionCategory;
 use App\Enums\DeductibilityStatus;
 use App\Enums\ExpenseStatus;
 use App\Enums\InvoiceStatus;
@@ -14,6 +16,9 @@ use App\Enums\VatStatus;
 use App\Models\AccountantAssignment;
 use App\Models\AccountingFirm;
 use App\Models\AccountingFirmMember;
+use App\Models\AiConversation;
+use App\Models\AiEscalation;
+use App\Models\AiMessage;
 use App\Models\BusinessEntity;
 use App\Models\Canton;
 use App\Models\Client;
@@ -24,7 +29,9 @@ use App\Models\Subscription;
 use App\Models\TaxProfile;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * Demo fixtures for local development and tests only. NEVER runs in production
@@ -117,7 +124,8 @@ class DemoSeeder extends Seeder
 
         $this->seedClientsAndInvoices($entity);
         $this->seedExpenses($entity);
-        $this->seedFirm($entity);
+        $maria = $this->seedFirm($entity);
+        $this->seedAiConversations($entity, $anna, $maria);
     }
 
     private function seedClientsAndInvoices(BusinessEntity $entity): void
@@ -207,7 +215,7 @@ class DemoSeeder extends Seeder
         }
     }
 
-    private function seedFirm(BusinessEntity $entity): void
+    private function seedFirm(BusinessEntity $entity): User
     {
         $firm = AccountingFirm::updateOrCreate(
             ['name' => 'Müller Treuhand AG'],
@@ -242,5 +250,157 @@ class DemoSeeder extends Seeder
             ['accounting_firm_id' => $firm->id, 'business_entity_id' => $entity->id],
             ['accountant_id' => $maria->id, 'assigned_at' => now(), 'revoked_at' => null],
         );
+
+        return $maria;
+    }
+
+    /**
+     * Verbatim simulated accountant answer from the backlog (SETTLO-20), reused
+     * for the one pre-answered escalation in the demo data.
+     */
+    private const MARIA_ANSWER = "Settlo AI's answer is correct. I'd add one practical note: if any single invoice exceeds CHF 100,000 on its own, that triggers mandatory VAT registration immediately, regardless of your YTD total. I recommend starting the ESTV application at least 6 weeks before your target start date and can assist if needed. — Maria Schneider";
+
+    /**
+     * Four demo Ask Settlo conversations with realistic Swiss-tax history, one of
+     * which carries an already-answered accountant escalation. All ownership and
+     * assistant-metadata columns are set server-side via forceFill — never
+     * mass-assigned. Conversations are keyed by title so re-seeding is safe.
+     *
+     * The Pro subscription's human-answer credit is deliberately left unspent so
+     * the live escalate → answered flow can still be demonstrated end to end; the
+     * seeded escalation stands on its own as historical data.
+     */
+    private function seedAiConversations(BusinessEntity $entity, User $owner, User $accountant): void
+    {
+        $firmId = AccountantAssignment::query()
+            ->where('business_entity_id', $entity->id)
+            ->whereNull('revoked_at')
+            ->value('accounting_firm_id');
+
+        $model = (string) config('settlo.anthropic.model', 'claude-sonnet-4-20250514');
+
+        /** @var list<array{age: Carbon, category: AiQuestionCategory, question: string, answer: string, escalate: bool}> $threads */
+        $threads = [
+            [
+                'age' => now()->subDays(5),
+                'category' => AiQuestionCategory::VatQuestion,
+                'question' => 'Do I need to register for VAT?',
+                'answer' => "Based on your current figures, not yet. VAT registration in Switzerland becomes mandatory once your worldwide turnover from taxable supplies reaches CHF 100,000 over a 12-month period. Your revenue year-to-date is CHF 68,400 — roughly 68% of the threshold — so you are still comfortably under it.\n\nA few things to keep in mind:\n• The threshold is based on turnover, not profit.\n• Once you cross CHF 100,000 you must register with the ESTV (Federal Tax Administration) and start charging VAT.\n• You may register voluntarily below the threshold, which lets you reclaim input VAT — often worthwhile if most of your clients are VAT-registered businesses.\n\nGiven your trajectory it is worth tracking monthly so you can register in good time if you approach the limit. Based on Swiss tax law · Verify for your specific situation.",
+                'escalate' => true,
+            ],
+            [
+                'age' => now()->subHours(3),
+                'category' => AiQuestionCategory::AhvIvEo,
+                'question' => 'How is AHV calculated for the self-employed?',
+                'answer' => "As a sole proprietor you pay AHV/IV/EO contributions on your net self-employment income (profit), not on turnover. The full rate for the self-employed is 10.0% (8.1% AHV + 1.4% IV + 0.5% EO) once your annual income reaches roughly CHF 58,800.\n\nBelow that, a declining sliding scale applies, down to a minimum contribution of a few hundred francs per year for very low incomes. Your cantonal Ausgleichskasse (compensation office) bills provisional instalments during the year and reconciles them once your final assessment is issued.\n\nUnlike an employee you carry the full contribution yourself — there is no employer to split it with — but AHV contributions are deductible for income-tax purposes. Based on Swiss tax law · Verify for your specific situation.",
+                'escalate' => false,
+            ],
+            [
+                'age' => now()->subDays(2),
+                'category' => AiQuestionCategory::TaxDeduction,
+                'question' => 'Can I deduct home office costs?',
+                'answer' => "Yes, provided you genuinely use part of your home mainly for the business and have no other suitable workspace. The deduction is proportional: take the share of floor area used for work and apply it to rent (or the imputed rental value if you own) plus incidental costs such as heating and electricity.\n\nFor example, if a dedicated office is about 15% of your dwelling's area, roughly 15% of the qualifying housing costs can be claimed. A business share of internet and phone is deductible too. Keep a short record of the area calculation and the underlying bills in case the tax office asks.\n\nMixed-use rooms are viewed critically, so a clearly separated, business-first space is much easier to defend. Based on Swiss tax law · Verify for your specific situation.",
+                'escalate' => false,
+            ],
+            [
+                'age' => now()->subDays(18),
+                'category' => AiQuestionCategory::IncomeTax,
+                'question' => 'What is the Pillar 3a maximum for me?',
+                'answer' => "It depends on whether you are affiliated with a pension fund (2nd pillar). As a self-employed person without a Pillar 2 you may contribute up to 20% of your net self-employment income into Pillar 3a, capped at CHF 35,280. If you do have a 2nd pillar, the lower 'small' limit of CHF 7,056 applies instead.\n\nContributions are fully deductible from taxable income, which makes 3a one of the most effective tax-saving tools available to the self-employed. You currently record CHF 7,056 per year, so if you are not in a pension fund there may be substantial additional room up to the 20% / CHF 35,280 ceiling.\n\nThe payment must reach your 3a account by 31 December to count for that tax year. Based on Swiss tax law · Verify for your specific situation.",
+                'escalate' => false,
+            ],
+        ];
+
+        foreach ($threads as $thread) {
+            $this->seedConversation($entity, $owner, $accountant, $firmId, $model, $thread);
+        }
+    }
+
+    /**
+     * @param  array{age: Carbon, category: AiQuestionCategory, question: string, answer: string, escalate: bool}  $thread
+     */
+    private function seedConversation(BusinessEntity $entity, User $owner, User $accountant, ?string $firmId, string $model, array $thread): void
+    {
+        $timestamp = $thread['age']->copy();
+
+        $conversation = AiConversation::firstOrNew([
+            'user_id' => $owner->id,
+            'business_entity_id' => $entity->id,
+            'title' => Str::limit(trim($thread['question']), 50, ''),
+        ]);
+
+        $conversation->forceFill([
+            'user_id' => $owner->id,
+            'business_entity_id' => $entity->id,
+            'title' => Str::limit(trim($thread['question']), 50, ''),
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp->copy()->addMinutes(2),
+        ])->save();
+
+        // Re-seeding safe: drop any prior turns so the canned history is exact.
+        $conversation->escalations()->delete();
+        $conversation->messages()->delete();
+
+        $userMessage = new AiMessage;
+        $userMessage->forceFill([
+            'conversation_id' => $conversation->id,
+            'role' => 'user',
+            'content' => $thread['question'],
+            'category' => $thread['category'],
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ])->save();
+
+        $assistantMessage = new AiMessage;
+        $assistantMessage->forceFill([
+            'conversation_id' => $conversation->id,
+            'role' => 'assistant',
+            'content' => $thread['answer'],
+            'category' => $thread['category'],
+            'model_used' => $model,
+            'confidence' => 0.90,
+            'tokens_used' => 640,
+            'processing_ms' => 1800,
+            'context_snapshot' => [
+                'canton_code' => 'ZH',
+                'revenue_ytd' => 68400,
+                'vat_status_label' => 'Not registered',
+            ],
+            'created_at' => $timestamp->copy()->addMinutes(2),
+            'updated_at' => $timestamp->copy()->addMinutes(2),
+        ])->save();
+
+        if ($thread['escalate']) {
+            $this->seedEscalation($conversation, $assistantMessage, $owner, $accountant, $firmId, $thread, $timestamp);
+        }
+    }
+
+    /**
+     * @param  array{age: Carbon, category: AiQuestionCategory, question: string, answer: string, escalate: bool}  $thread
+     */
+    private function seedEscalation(AiConversation $conversation, AiMessage $assistantMessage, User $owner, User $accountant, ?string $firmId, array $thread, Carbon $timestamp): void
+    {
+        $answeredAt = $timestamp->copy()->addHours(3);
+
+        $escalation = new AiEscalation;
+        $escalation->forceFill([
+            'conversation_id' => $conversation->id,
+            'message_id' => $assistantMessage->id,
+            'user_id' => $owner->id,
+            'accounting_firm_id' => $firmId,
+            'accountant_id' => $accountant->id,
+            'category' => $thread['category'],
+            'user_question' => $thread['question'],
+            'ai_answer' => $thread['answer'],
+            'status' => AiEscalationStatus::Answered->value,
+            'accountant_answer' => self::MARIA_ANSWER,
+            'answered_at' => $answeredAt,
+            'sla_deadline' => $timestamp->copy()->addDay(),
+            'sla_breached' => false,
+            'created_at' => $timestamp->copy()->addMinutes(3),
+            'updated_at' => $answeredAt,
+        ])->save();
+
+        $conversation->forceFill(['updated_at' => $answeredAt])->save();
     }
 }

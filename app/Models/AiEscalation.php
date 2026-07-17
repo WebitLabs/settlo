@@ -28,6 +28,7 @@ class AiEscalation extends Model
             'status' => AiEscalationStatus::class,
             'category' => AiQuestionCategory::class,
             'answered_at' => 'datetime',
+            'resolved_at' => 'datetime',
             'add_to_knowledge_base' => 'boolean',
             'knowledge_base_approved_at' => 'datetime',
             'sla_deadline' => 'datetime',

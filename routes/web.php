@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AskSettlo\AskSettloController;
 use App\Http\Controllers\ExpenseReceiptController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -12,3 +13,21 @@ Route::get('/', function () {
 Route::middleware('auth')
     ->get('/receipts/{expense}', ExpenseReceiptController::class)
     ->name('receipts.show');
+
+/*
+ * Ask Settlo AI chat. Every route is tenant-scoped by the {businessEntity} owner
+ * and re-derives the boundary in the controller — the panel is never trusted to
+ * have done it. The chat surface is a full Inertia page outside the Filament panel.
+ */
+Route::middleware('auth')
+    ->prefix('ask-settlo/{businessEntity}')
+    ->name('ask-settlo.')
+    ->group(function () {
+        Route::get('/', [AskSettloController::class, 'index'])->name('index');
+        Route::post('/conversations', [AskSettloController::class, 'storeConversation'])->name('conversations.store');
+        Route::get('/conversations/{conversation}', [AskSettloController::class, 'showConversation'])->name('conversations.show');
+        Route::post('/conversations/{conversation}/messages', [AskSettloController::class, 'storeMessage'])->name('messages.store');
+        Route::post('/conversations/{conversation}/stream', [AskSettloController::class, 'stream'])->name('stream');
+        Route::post('/messages/{message}/escalate', [AskSettloController::class, 'escalate'])->name('escalate');
+        Route::post('/escalations/{escalation}/resolve', [AskSettloController::class, 'resolve'])->name('escalations.resolve');
+    });
