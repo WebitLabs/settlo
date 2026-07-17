@@ -6,6 +6,7 @@ use App\Models\AccountantAssignment;
 use App\Models\AiEscalation;
 use App\Models\BusinessEntity;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Default-deny. Owners may view and resolve escalations on a business they still
@@ -37,6 +38,29 @@ class AiEscalationPolicy
             return false;
         }
 
+        return $this->assignedThroughFirm($user, $entityId)
+            || $this->assignedDirectly($user, $entityId);
+    }
+
+    /**
+     * An accountant may answer through an active (non-revoked) assignment owned
+     * by a firm they are a member of — the shape the invitation-accept flow
+     * creates (firm-scoped, accountant_id NULL). Mirrors the client-books read
+     * rule in InvoicePolicy::assignedAccountant.
+     */
+    private function assignedThroughFirm(User $user, string $entityId): bool
+    {
+        return $user->accountingFirms()
+            ->whereHas('activeAssignments', fn (Builder $query) => $query
+                ->where('business_entity_id', $entityId))
+            ->exists();
+    }
+
+    /**
+     * A legacy per-accountant assignment naming this user directly.
+     */
+    private function assignedDirectly(User $user, string $entityId): bool
+    {
         return AccountantAssignment::query()
             ->where('business_entity_id', $entityId)
             ->where('accountant_id', $user->getKey())

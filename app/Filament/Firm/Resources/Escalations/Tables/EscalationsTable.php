@@ -84,11 +84,23 @@ class EscalationsTable
             ->visible(fn (AiEscalation $record): bool => $record->status === AiEscalationStatus::Pending
                 && $record->accountant_id === null)
             ->action(function (AiEscalation $record): void {
-                $record->forceFill([
-                    'accountant_id' => Auth::id(),
-                    'accounting_firm_id' => Filament::getTenant()->getKey(),
-                    'status' => AiEscalationStatus::InProgress->value,
-                ])->save();
+                // Atomic claim: only the row still Pending and unclaimed is taken,
+                // so a second accountant racing the first can never overwrite the
+                // recorded claimant. The guarded columns are set server-side only.
+                $claimed = AiEscalation::whereKey($record->getKey())
+                    ->where('status', AiEscalationStatus::Pending->value)
+                    ->whereNull('accountant_id')
+                    ->update([
+                        'accountant_id' => Auth::id(),
+                        'accounting_firm_id' => Filament::getTenant()->getKey(),
+                        'status' => AiEscalationStatus::InProgress->value,
+                    ]);
+
+                if ($claimed === 0) {
+                    Notification::make()->title('Already claimed')->danger()->send();
+
+                    return;
+                }
 
                 Notification::make()->title('Escalation claimed')->success()->send();
             });

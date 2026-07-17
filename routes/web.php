@@ -41,8 +41,10 @@ Route::middleware('auth')->group(function () {
  * Ask Settlo AI chat. Every route is tenant-scoped by the {businessEntity} owner
  * and re-derives the boundary in the controller — the panel is never trusted to
  * have done it. The chat surface is a full Inertia page outside the Filament panel.
+ * Every route is throttled per authenticated user (the 'ask-settlo' limiter) so
+ * the live-model stream/message turns can't be looped into a runaway cost/DoS.
  */
-Route::middleware('auth')
+Route::middleware(['auth', 'throttle:ask-settlo'])
     ->prefix('ask-settlo/{businessEntity}')
     ->name('ask-settlo.')
     ->group(function () {

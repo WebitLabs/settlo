@@ -159,6 +159,48 @@ it('answers a claimed escalation, notifies the owner, broadcasts, and can publis
     Event::assertDispatched(AiEscalationUpdated::class, fn (AiEscalationUpdated $event) => $event->status === 'answered');
 });
 
+it('does not overwrite the claimant when a second accountant races the claim', function () {
+    $escalation = makeEscalation($this->entity, $this->owner);
+
+    // A first accountant already claimed the row atomically.
+    $firstAccountant = User::factory()->accountant()->create();
+    firmMember($this->firm, $firstAccountant, owner: false);
+    $claimed = AiEscalation::whereKey($escalation->getKey())
+        ->where('status', AiEscalationStatus::Pending->value)
+        ->whereNull('accountant_id')
+        ->update([
+            'accountant_id' => $firstAccountant->getKey(),
+            'accounting_firm_id' => $this->firm->getKey(),
+            'status' => AiEscalationStatus::InProgress->value,
+        ]);
+
+    expect($claimed)->toBe(1);
+
+    // A second accountant racing the same escalation cannot claim it and the
+    // original claimant is left intact — no silent overwrite.
+    actAsFirm();
+
+    Livewire::test(ListEscalations::class)
+        ->assertActionHidden(TestAction::make('claim')->table($escalation));
+
+    // The atomic guard itself refuses the second write.
+    $secondClaim = AiEscalation::whereKey($escalation->getKey())
+        ->where('status', AiEscalationStatus::Pending->value)
+        ->whereNull('accountant_id')
+        ->update([
+            'accountant_id' => $this->accountant->getKey(),
+            'accounting_firm_id' => $this->firm->getKey(),
+            'status' => AiEscalationStatus::InProgress->value,
+        ]);
+
+    expect($secondClaim)->toBe(0);
+
+    $escalation->refresh();
+
+    expect($escalation->accountant_id)->toBe($firstAccountant->getKey())
+        ->and($escalation->status)->toBe(AiEscalationStatus::InProgress);
+});
+
 it('hides the claim action once an escalation is claimed', function () {
     $escalation = makeEscalation($this->entity, $this->owner);
     $escalation->forceFill([
@@ -170,6 +212,61 @@ it('hides the claim action once an escalation is claimed', function () {
 
     Livewire::test(ListEscalations::class)
         ->assertActionHidden(TestAction::make('claim')->table($escalation));
+});
+
+it('lets an accountant answer via a firm-scoped assignment with no accountant_id', function () {
+    // The invitation-accept flow binds a business to a firm without naming an
+    // individual accountant (accountant_id NULL). A member of that firm must
+    // still be able to answer the escalation.
+    $firm = AccountingFirm::factory()->create();
+    $accountant = User::factory()->accountant()->create();
+    firmMember($firm, $accountant);
+
+    $owner = User::factory()->owner()->create();
+    $entity = BusinessEntity::factory()->forCanton('ZH')->for($owner, 'owner')->create();
+
+    AccountantAssignment::create([
+        'accounting_firm_id' => $firm->getKey(),
+        'business_entity_id' => $entity->getKey(),
+        'accountant_id' => null,
+        'assigned_at' => now()->subDay(),
+        'revoked_at' => null,
+    ]);
+
+    $escalation = makeEscalation($entity, $owner);
+
+    expect($accountant->can('answer', $escalation))->toBeTrue();
+});
+
+it('denies answering to an accountant whose firm has no assignment to the business', function () {
+    $escalation = makeEscalation($this->entity, $this->owner);
+
+    $otherFirm = AccountingFirm::factory()->create();
+    $stranger = User::factory()->accountant()->create();
+    firmMember($otherFirm, $stranger);
+
+    expect($stranger->can('answer', $escalation))->toBeFalse();
+});
+
+it('denies answering once the firm-scoped assignment is revoked', function () {
+    $firm = AccountingFirm::factory()->create();
+    $accountant = User::factory()->accountant()->create();
+    firmMember($firm, $accountant);
+
+    $owner = User::factory()->owner()->create();
+    $entity = BusinessEntity::factory()->forCanton('ZH')->for($owner, 'owner')->create();
+
+    AccountantAssignment::create([
+        'accounting_firm_id' => $firm->getKey(),
+        'business_entity_id' => $entity->getKey(),
+        'accountant_id' => null,
+        'assigned_at' => now()->subDays(2),
+        'revoked_at' => now()->subDay(),
+    ]);
+
+    $escalation = makeEscalation($entity, $owner);
+
+    expect($accountant->can('answer', $escalation))->toBeFalse();
 });
 
 it('does not surface escalations to a firm without an active assignment', function () {

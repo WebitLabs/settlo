@@ -4,12 +4,14 @@ use App\Enums\AiEscalationStatus;
 use App\Enums\MaritalStatus;
 use App\Enums\VatStatus;
 use App\Jobs\SimulateAccountantAnswer;
+use App\Models\AiEscalation;
 use App\Models\AiMessage;
 use App\Models\BusinessEntity;
 use App\Models\Subscription;
 use App\Models\TaxProfile;
 use App\Models\User;
 use App\Services\Ai\AskSettloService;
+use App\Services\Ai\EscalationService;
 use Database\Seeders\ReferenceDataSeeder;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\Fluent\AssertableJson;
@@ -137,6 +139,39 @@ it('returns the upgrade message when escalation quota is exhausted', function ()
         ]);
 });
 
+it('rate-limits Ask Settlo requests per authenticated user', function () {
+    config(['settlo.ask_settlo_rate_limit' => 2]);
+
+    [$user, $entity] = askOwner();
+
+    $this->actingAs($user)->get(route('ask-settlo.index', $entity))->assertOk();
+    $this->actingAs($user)->get(route('ask-settlo.index', $entity))->assertOk();
+
+    $this->actingAs($user)
+        ->get(route('ask-settlo.index', $entity))
+        ->assertStatus(429);
+});
+
+it('rejects a concurrent duplicate escalation with 409 without burning a second credit', function () {
+    Queue::fake([SimulateAccountantAnswer::class]);
+
+    [$user, $entity] = askOwner('pro', 1);
+    $answer = askAssistantMessage($user, $entity);
+
+    $this->actingAs($user)
+        ->postJson(route('ask-settlo.escalate', [$entity, $answer]))
+        ->assertCreated();
+
+    $this->actingAs($user)
+        ->postJson(route('ask-settlo.escalate', [$entity, $answer]))
+        ->assertStatus(409)
+        ->assertJson(['message' => 'This answer has already been escalated.']);
+
+    expect($user->subscription->refresh()->human_answers_used)->toBe(1);
+
+    $this->assertDatabaseCount('ai_escalations', 1);
+});
+
 it('escalates an answer and then resolves it', function () {
     Queue::fake([SimulateAccountantAnswer::class]);
 
@@ -153,6 +188,12 @@ it('escalates an answer and then resolves it', function () {
 
     $escalationId = $escalationResponse->json('escalation.id');
 
+    // The owner may only resolve once the accountant has answered.
+    app(EscalationService::class)->applyAnswer(
+        AiEscalation::findOrFail($escalationId),
+        'Register once you approach CHF 100,000.',
+    );
+
     $this->actingAs($user)
         ->postJson(route('ask-settlo.escalations.resolve', [$entity, $escalationId]))
         ->assertOk()
@@ -161,5 +202,27 @@ it('escalates an answer and then resolves it', function () {
     $this->assertDatabaseHas('ai_escalations', [
         'id' => $escalationId,
         'status' => AiEscalationStatus::Closed->value,
+    ]);
+});
+
+it('rejects resolving a still-pending escalation with 409 and leaves the status unchanged', function () {
+    Queue::fake([SimulateAccountantAnswer::class]);
+
+    [$user, $entity] = askOwner('pro', 1);
+    $answer = askAssistantMessage($user, $entity);
+
+    $escalationId = $this->actingAs($user)
+        ->postJson(route('ask-settlo.escalate', [$entity, $answer]))
+        ->assertCreated()
+        ->json('escalation.id');
+
+    $this->actingAs($user)
+        ->postJson(route('ask-settlo.escalations.resolve', [$entity, $escalationId]))
+        ->assertStatus(409)
+        ->assertJson(['message' => 'This escalation has not been answered yet.']);
+
+    $this->assertDatabaseHas('ai_escalations', [
+        'id' => $escalationId,
+        'status' => AiEscalationStatus::Pending->value,
     ]);
 });

@@ -33,4 +33,17 @@ return [
     */
     'current_fiscal_year' => (int) env('SETTLO_FISCAL_YEAR', 2026),
     'timezone' => 'Europe/Zurich',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ask Settlo rate limit
+    |--------------------------------------------------------------------------
+    |
+    | Maximum Ask Settlo chat requests per authenticated user per minute. This
+    | bounds third-party AI cost and availability: every stream/message turn
+    | issues a live model call that is otherwise unmetered, so an authenticated
+    | client cannot loop the endpoint into a runaway cost/DoS.
+    |
+    */
+    'ask_settlo_rate_limit' => (int) env('SETTLO_ASK_RATE_LIMIT', 30),
 ];

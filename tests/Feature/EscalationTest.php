@@ -8,6 +8,7 @@ use App\Events\AiEscalationUpdated;
 use App\Jobs\SimulateAccountantAnswer;
 use App\Models\AccountantAssignment;
 use App\Models\AccountingFirm;
+use App\Models\AiEscalation;
 use App\Models\AiMessage;
 use App\Models\BusinessEntity;
 use App\Models\Subscription;
@@ -19,6 +20,7 @@ use App\Services\Billing\SubscriptionService;
 use Database\Seeders\CantonSeeder;
 use Database\Seeders\PlanSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 
@@ -109,6 +111,38 @@ it('blocks a second escalation once the Pro quota of 1 is spent', function () {
         ->toThrow(QuotaExceededException::class);
 });
 
+it('rolls back the human-answer credit when a concurrent request wins the escalation race', function () {
+    [$user, $entity] = ownerWithPlan('pro', 1);
+    $answer = assistantAnswer($user, $entity);
+
+    // Simulate a racing request that commits its own escalation for the same
+    // answer after our exists() check but before our insert: consumeHumanAnswer
+    // spends the credit, then a conflicting row lands. The unique message_id
+    // insert must then fail and roll the whole transaction back — including the
+    // credit spend — so no scarce credit is burned without an escalation.
+    $subscriptions = Mockery::mock(SubscriptionService::class);
+    $subscriptions->shouldReceive('consumeHumanAnswer')
+        ->once()
+        ->andReturnUsing(function (Subscription $subscription) use ($answer, $user): void {
+            Subscription::whereKey($subscription->getKey())->increment('human_answers_used');
+
+            AiEscalation::create([
+                'conversation_id' => $answer->conversation_id,
+                'message_id' => $answer->getKey(),
+                'user_id' => $user->getKey(),
+                'user_question' => 'concurrent',
+                'ai_answer' => 'concurrent',
+            ]);
+        });
+
+    $service = new EscalationService($subscriptions);
+
+    expect(fn () => $service->escalate($answer, $user))
+        ->toThrow(QueryException::class);
+
+    expect($user->subscription->refresh()->human_answers_used)->toBe(0);
+});
+
 it('denies escalation to a Solo owner without accountant access', function () {
     [$user, $entity] = ownerWithPlan('solo', 0);
     $answer = assistantAnswer($user, $entity);
@@ -148,7 +182,25 @@ it('runs the simulated answer job: answered status, timestamp, owner notificatio
     });
 });
 
-it('marks an escalation resolved', function () {
+it('marks an answered escalation resolved', function () {
+    [$user, $entity] = ownerWithPlan('pro', 1);
+    $answer = assistantAnswer($user, $entity);
+
+    Event::fake([AiEscalationUpdated::class]);
+    Queue::fake([SimulateAccountantAnswer::class]);
+
+    $escalation = app(EscalationService::class)->escalate($answer, $user);
+    app(EscalationService::class)->applyAnswer($escalation, 'Register once you approach CHF 100,000.');
+
+    app(EscalationService::class)->markResolved($escalation->fresh(), $user);
+
+    $escalation->refresh();
+
+    expect($escalation->status)->toBe(AiEscalationStatus::Closed)
+        ->and($escalation->resolved_at)->not->toBeNull();
+});
+
+it('refuses to resolve a still-pending escalation', function () {
     [$user, $entity] = ownerWithPlan('pro', 1);
     $answer = assistantAnswer($user, $entity);
 
@@ -157,12 +209,13 @@ it('marks an escalation resolved', function () {
 
     $escalation = app(EscalationService::class)->escalate($answer, $user);
 
-    app(EscalationService::class)->markResolved($escalation, $user);
+    expect(fn () => app(EscalationService::class)->markResolved($escalation, $user))
+        ->toThrow(InvalidArgumentException::class);
 
     $escalation->refresh();
 
-    expect($escalation->status)->toBe(AiEscalationStatus::Closed)
-        ->and($escalation->resolved_at)->not->toBeNull();
+    expect($escalation->status)->toBe(AiEscalationStatus::Pending)
+        ->and($escalation->resolved_at)->toBeNull();
 });
 
 it('enforces the escalation policy across tenants and roles', function () {

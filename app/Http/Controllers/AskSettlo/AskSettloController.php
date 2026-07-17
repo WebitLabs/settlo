@@ -15,6 +15,7 @@ use App\Services\Ai\AskSettloService;
 use App\Services\Ai\ChatContextAssembler;
 use App\Services\Ai\EscalationService;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use InvalidArgumentException;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -142,6 +145,14 @@ class AskSettloController extends Controller
             ], 429);
         } catch (AuthorizationException $e) {
             return response()->json(['message' => $e->getMessage()], 403);
+        } catch (QueryException|RuntimeException) {
+            // A concurrent double-submit lost the race for this answer's single
+            // escalation. The credit spend was rolled back with the failed insert;
+            // report the already-existing escalation rather than 500-ing.
+            return response()->json([
+                'message' => 'This answer has already been escalated.',
+                'quota' => $this->presentQuota($user->fresh()),
+            ], 409);
         }
 
         return response()->json([
@@ -158,7 +169,15 @@ class AskSettloController extends Controller
         $this->authorizeConversation($businessEntity, $conversation);
         Gate::authorize('resolve', $escalation);
 
-        $escalation = $escalations->markResolved($escalation, $user);
+        try {
+            $escalation = $escalations->markResolved($escalation, $user);
+        } catch (InvalidArgumentException) {
+            // The escalation has not been answered yet, so there is nothing to
+            // acknowledge — report the conflict rather than stranding the record.
+            return response()->json([
+                'message' => 'This escalation has not been answered yet.',
+            ], 409);
+        }
 
         return response()->json($this->presentEscalation($escalation));
     }

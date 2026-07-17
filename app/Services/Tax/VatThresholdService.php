@@ -29,7 +29,7 @@ class VatThresholdService
         if ($largestSingleInvoice !== null && $largestSingleInvoice >= $threshold) {
             return [
                 'level' => 'mandatory',
-                'progress_pct' => round($revenueYtd / $threshold * 100, 1),
+                'progress_pct' => $threshold > 0 ? round($revenueYtd / $threshold * 100, 1) : 0.0,
                 'crossing_date' => null,
                 'threshold' => $threshold,
             ];

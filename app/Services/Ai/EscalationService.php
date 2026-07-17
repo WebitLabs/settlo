@@ -16,6 +16,7 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -58,26 +59,39 @@ class EscalationService
             throw new AuthorizationException('Human accountant access is not available on your plan.');
         }
 
-        if ($assistantMessage->escalation()->exists()) {
-            throw new RuntimeException('This answer has already been escalated.');
-        }
-
         $conversation = $assistantMessage->conversation()->firstOrFail();
 
-        $subscription = $user->subscription()->firstOrFail();
-        $this->subscriptions->consumeHumanAnswer($subscription);
+        // The duplicate check, credit spend and insert must be one atomic unit.
+        // A row lock on the answer serialises two racing requests (double-click /
+        // retry) so only the first passes the exists() check — the second sees the
+        // existing escalation and never spends a credit. Wrapping everything in a
+        // single transaction also guarantees that if the unique message_id insert
+        // still loses a race, consumeHumanAnswer's increment is rolled back with
+        // it, so a scarce human-answer credit is never burned without an escalation.
+        $escalation = DB::transaction(function () use ($assistantMessage, $user, $conversation): AiEscalation {
+            AiMessage::whereKey($assistantMessage->getKey())->lockForUpdate()->firstOrFail();
 
-        $escalation = new AiEscalation;
-        $escalation->forceFill([
-            'conversation_id' => $conversation->getKey(),
-            'message_id' => $assistantMessage->getKey(),
-            'user_id' => $user->getKey(),
-            'accounting_firm_id' => $this->assignedFirmId($conversation),
-            'status' => AiEscalationStatus::Pending->value,
-            'user_question' => $this->precedingUserQuestion($conversation, $assistantMessage),
-            'ai_answer' => $assistantMessage->content,
-            'sla_deadline' => $this->slaDeadline(),
-        ])->save();
+            if ($assistantMessage->escalation()->exists()) {
+                throw new RuntimeException('This answer has already been escalated.');
+            }
+
+            $subscription = $user->subscription()->firstOrFail();
+            $this->subscriptions->consumeHumanAnswer($subscription);
+
+            $escalation = new AiEscalation;
+            $escalation->forceFill([
+                'conversation_id' => $conversation->getKey(),
+                'message_id' => $assistantMessage->getKey(),
+                'user_id' => $user->getKey(),
+                'accounting_firm_id' => $this->assignedFirmId($conversation),
+                'status' => AiEscalationStatus::Pending->value,
+                'user_question' => $this->precedingUserQuestion($conversation, $assistantMessage),
+                'ai_answer' => $assistantMessage->content,
+                'sla_deadline' => $this->slaDeadline(),
+            ])->save();
+
+            return $escalation;
+        });
 
         $this->broadcast($escalation, $conversation);
 
@@ -114,10 +128,18 @@ class EscalationService
     }
 
     /**
-     * Owner acknowledges the answer and closes the escalation.
+     * Owner acknowledges the answer and closes the escalation. Only an already
+     * Answered escalation may be resolved: closing a still-Pending one would
+     * strand it after the human-answer credit was already burnt.
+     *
+     * @throws InvalidArgumentException when the escalation has not been answered yet
      */
     public function markResolved(AiEscalation $escalation, User $user): AiEscalation
     {
+        if ($escalation->status !== AiEscalationStatus::Answered) {
+            throw new InvalidArgumentException('Only an answered escalation can be resolved.');
+        }
+
         $escalation->forceFill([
             'status' => AiEscalationStatus::Closed->value,
             'resolved_at' => Carbon::now(),

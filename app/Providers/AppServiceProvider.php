@@ -13,8 +13,11 @@ use App\Services\Extraction\GeminiExtractor;
 use App\Services\Extraction\ReceiptExtractor;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -67,6 +70,16 @@ class AppServiceProvider extends ServiceProvider
     {
         // Surface N+1 queries during local development.
         Model::preventLazyLoading($this->app->environment('local'));
+
+        // Bound Ask Settlo AI chat by authenticated user so a scripted loop of
+        // stream/message turns cannot run up unbounded third-party model cost or
+        // exhaust provider rate limits. Falls back to IP for unauthenticated hits.
+        RateLimiter::for('ask-settlo', function (Request $request): Limit {
+            $perMinute = max(1, (int) config('settlo.ask_settlo_rate_limit', 30));
+
+            return Limit::perMinute($perMinute)
+                ->by((string) ($request->user()?->getKey() ?? $request->ip()));
+        });
 
         // A global amber banner is shown across every panel whenever a
         // superadmin is impersonating another user, with a one-click stop.

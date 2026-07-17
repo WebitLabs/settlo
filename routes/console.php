@@ -15,3 +15,6 @@ Schedule::command('settlo:renew-subscriptions')->hourly();
 
 // Invoicing
 Schedule::command('settlo:mark-overdue-invoices')->dailyAt('02:00');
+
+// Horizon metrics snapshots (keeps the dashboard graphs populated)
+Schedule::command('horizon:snapshot')->everyFiveMinutes();
