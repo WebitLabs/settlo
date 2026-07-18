@@ -28,6 +28,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->brandName('Settlo Superadmin')
             ->login()
+            ->viteTheme('resources/css/filament/theme.css')
             ->colors([
                 'primary' => Color::hex('#0D1F2D'),
                 'danger' => Color::hex('#E24B4A'),

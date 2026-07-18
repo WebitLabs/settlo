@@ -31,6 +31,7 @@ class FirmPanelProvider extends PanelProvider
             ->tenant(AccountingFirm::class)
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
+            ->viteTheme('resources/css/filament/theme.css')
             ->colors([
                 'primary' => Color::hex('#0F6E56'),
                 'danger' => Color::hex('#E24B4A'),

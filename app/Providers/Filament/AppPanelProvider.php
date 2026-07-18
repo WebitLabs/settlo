@@ -30,6 +30,7 @@ class AppPanelProvider extends PanelProvider
         return $panel
             ->id('app')
             ->path('app')
+            ->viteTheme('resources/css/filament/theme.css')
             ->brandName('Settlo')
             ->login()
             ->registration(Register::class)
