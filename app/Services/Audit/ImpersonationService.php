@@ -49,6 +49,7 @@ class ImpersonationService
         ]);
 
         Auth::login($target);
+        $this->refreshSessionPasswordHash($target);
     }
 
     /**
@@ -72,6 +73,7 @@ class ImpersonationService
 
         if ($admin instanceof User) {
             Auth::login($admin);
+            $this->refreshSessionPasswordHash($admin);
         }
 
         session()->forget(self::SESSION_KEY);
@@ -80,5 +82,20 @@ class ImpersonationService
     public function isImpersonating(): bool
     {
         return session()->has(self::SESSION_KEY);
+    }
+
+    /**
+     * The panels run AuthenticateSession, which logs the session out whenever
+     * the stored password hash no longer matches the authenticated user. After
+     * switching identities the stored hash still belongs to the previous user,
+     * so it must be refreshed or the very next request bounces to the login
+     * screen.
+     */
+    private function refreshSessionPasswordHash(User $user): void
+    {
+        session()->put(
+            'password_hash_'.Auth::getDefaultDriver(),
+            $user->getAuthPassword(),
+        );
     }
 }

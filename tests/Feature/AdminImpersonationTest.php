@@ -34,6 +34,27 @@ it('starts impersonation, switches the auth user, and audits with the impersonat
     ]);
 });
 
+it('keeps the impersonated session authenticated across panel requests', function () {
+    $owner = User::factory()->owner()->create();
+    BusinessEntity::factory()->forCanton('ZH')->for($owner, 'owner')->create();
+
+    $this->actingAs($this->admin);
+
+    $service = app(ImpersonationService::class);
+    $service->start($owner);
+
+    // AuthenticateSession compares this stored hash against the current user on
+    // every panel request — a stale hash bounces the target to the login screen.
+    expect(session('password_hash_web'))->toBe($owner->getAuthPassword());
+
+    $this->followingRedirects()->get('/app')->assertSuccessful();
+
+    $service->stop();
+
+    expect(session('password_hash_web'))->toBe($this->admin->getAuthPassword());
+    $this->followingRedirects()->get('/admin')->assertSuccessful();
+});
+
 it('rejects impersonating another superadmin', function () {
     $otherAdmin = User::factory()->superadmin()->create();
 
