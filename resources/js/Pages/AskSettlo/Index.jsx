@@ -239,7 +239,7 @@ export default function Index({ businessEntityId, conversations: initialConversa
     return (
         <>
             <Head title="Ask Settlo" />
-            <div className="flex h-screen w-full overflow-hidden bg-[#F0F2F5] font-sans text-[#0D1F2D]">
+            <div className="flex h-screen w-full overflow-hidden bg-gray-100 font-sans text-gray-900 dark:bg-gray-950 dark:text-gray-100">
                 <ConversationList
                     conversations={conversations}
                     activeId={activeId}
@@ -270,7 +270,7 @@ export default function Index({ businessEntityId, conversations: initialConversa
                 />
 
                 {toast && (
-                    <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-[#0D1F2D] px-4 py-2.5 text-[13px] text-white shadow-lg">
+                    <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-2.5 text-[13px] text-white shadow-lg ring-1 ring-white/10 dark:bg-gray-800">
                         {toast}
                     </div>
                 )}

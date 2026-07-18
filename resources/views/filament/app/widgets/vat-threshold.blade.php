@@ -9,31 +9,27 @@
 @endphp
 
 <x-filament-widgets::widget>
-    <x-filament::section>
-        <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-                <x-filament::icon
-                    icon="heroicon-o-receipt-percent"
-                    class="h-5 w-5 text-primary-600 dark:text-primary-400"
-                />
-                <h3 class="text-base font-semibold text-gray-950 dark:text-white">VAT threshold</h3>
-            </div>
-            <span class="text-sm font-semibold text-gray-950 dark:text-white">
+    <x-filament::section
+        icon="heroicon-o-receipt-percent"
+        icon-color="primary"
+        heading="VAT threshold"
+        description="Progress toward CHF 100'000"
+    >
+        <x-slot name="afterHeader">
+            <span class="text-lg font-semibold tabular-nums text-gray-950 dark:text-white">
                 {{ number_format($progressPct, 1) }}%
             </span>
-        </div>
+        </x-slot>
 
-        <div class="mt-4">
-            <div class="h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                <div
-                    class="h-full rounded-full transition-all {{ $barColor }}"
-                    style="width: {{ $barPct }}%"
-                ></div>
-            </div>
-            <div class="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>CHF 0</span>
-                <span>CHF 100'000</span>
-            </div>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+            <div
+                class="h-full rounded-full transition-all {{ $barColor }}"
+                style="width: {{ $barPct > 0 ? max($barPct, 2) : 0 }}%"
+            ></div>
+        </div>
+        <div class="mt-2 flex items-center justify-between text-xs tabular-nums text-gray-500 dark:text-gray-400">
+            <span>CHF 0</span>
+            <span>CHF 100'000</span>
         </div>
 
         <div class="mt-4 space-y-1 text-sm">

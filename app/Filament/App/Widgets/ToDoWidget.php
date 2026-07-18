@@ -47,7 +47,7 @@ class ToDoWidget extends Widget
     }
 
     /**
-     * @return list<array{color: string, label: string, url: ?string}>
+     * @return list<array{color: string, icon: string, label: string, url: ?string}>
      */
     private function buildItems(BusinessEntity $entity): array
     {
@@ -56,6 +56,7 @@ class ToDoWidget extends Widget
         foreach ($this->overdueInvoices($entity) as $invoice) {
             $items[] = [
                 'color' => 'red',
+                'icon' => 'heroicon-m-exclamation-triangle',
                 'label' => "Invoice {$invoice->invoice_number} is overdue",
                 'url' => InvoiceResource::getUrl('edit', ['record' => $invoice], tenant: $entity),
             ];
@@ -64,6 +65,7 @@ class ToDoWidget extends Widget
         if ($this->vatNeedsAttention($entity)) {
             $items[] = [
                 'color' => 'green',
+                'icon' => 'heroicon-m-receipt-percent',
                 'label' => 'Consider VAT registration',
                 'url' => route('ask-settlo.index', $entity).'?q='.urlencode('Should I register for VAT?'),
             ];
@@ -72,6 +74,7 @@ class ToDoWidget extends Widget
         foreach ($this->answeredEscalations($entity) as $escalation) {
             $items[] = [
                 'color' => 'gray',
+                'icon' => 'heroicon-m-chat-bubble-left-right',
                 'label' => 'Your accountant answered a question',
                 'url' => route('ask-settlo.index', $entity),
             ];
@@ -80,6 +83,7 @@ class ToDoWidget extends Widget
         foreach ($this->draftInvoices($entity) as $invoice) {
             $items[] = [
                 'color' => 'info',
+                'icon' => 'heroicon-m-paper-airplane',
                 'label' => "Send invoice {$invoice->invoice_number}",
                 'url' => InvoiceResource::getUrl('edit', ['record' => $invoice], tenant: $entity),
             ];
@@ -89,6 +93,7 @@ class ToDoWidget extends Widget
         if ($pendingExpenses > 0) {
             $items[] = [
                 'color' => 'amber',
+                'icon' => 'heroicon-m-banknotes',
                 'label' => $pendingExpenses === 1
                     ? 'Review 1 expense'
                     : "Review {$pendingExpenses} expenses",
@@ -99,6 +104,7 @@ class ToDoWidget extends Widget
         if ($this->taxProfileIncomplete($entity)) {
             $items[] = [
                 'color' => 'gray',
+                'icon' => 'heroicon-m-user-circle',
                 'label' => 'Complete your tax profile',
                 'url' => BusinessSettings::getUrl(tenant: $entity),
             ];

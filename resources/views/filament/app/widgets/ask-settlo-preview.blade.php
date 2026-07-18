@@ -1,59 +1,64 @@
 <x-filament-widgets::widget>
-    <x-filament::section>
-        <div class="flex items-start justify-between gap-4">
-            <div class="flex items-center gap-2">
-                <x-filament::icon
-                    icon="heroicon-o-chat-bubble-left-right"
-                    class="h-5 w-5 text-primary-600 dark:text-primary-400"
-                />
-                <h3 class="text-base font-semibold text-gray-950 dark:text-white">Ask Settlo</h3>
-            </div>
-
-            @if ($chatUrl)
-                <a
-                    href="{{ $chatUrl }}"
-                    class="text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400"
+    <x-filament::section
+        icon="heroicon-o-chat-bubble-left-right"
+        icon-color="primary"
+        heading="Ask Settlo"
+        description="Instant answers on Swiss taxes, AHV, VAT & deductions"
+    >
+        @if ($chatUrl)
+            <x-slot name="afterHeader">
+                <x-filament::link
+                    :href="$chatUrl"
+                    icon="heroicon-m-arrow-right"
+                    icon-position="after"
+                    size="sm"
                 >
-                    Open chat &rarr;
-                </a>
-            @endif
-        </div>
+                    Open chat
+                </x-filament::link>
+            </x-slot>
+        @endif
 
         @if ($hasConversation)
-            <div class="mt-4 space-y-3">
-                <div>
-                    <div class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                        You asked
-                    </div>
-                    <p class="mt-1 text-sm font-medium text-gray-950 dark:text-white">
+            <div class="space-y-3">
+                <div class="flex justify-end">
+                    <div class="max-w-[85%] rounded-2xl rounded-br-sm bg-primary-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm">
                         {{ $question ?? $title }}
-                    </p>
+                    </div>
                 </div>
 
-                <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/5">
-                    <div class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                        Settlo AI
-                    </div>
-                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                <div class="flex items-start gap-2.5">
+                    <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-400/10 dark:text-primary-400">
+                        <x-filament::icon icon="heroicon-m-sparkles" class="h-4 w-4" />
+                    </span>
+                    <div class="max-w-[85%] rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-2.5 text-sm text-gray-700 dark:bg-white/5 dark:text-gray-200">
                         {{ $answer }}
-                    </p>
+                    </div>
                 </div>
             </div>
         @else
-            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                Ask your first question about Swiss taxes, AHV, VAT, or deductions and get an instant, context-aware answer.
-            </p>
+            <div class="flex items-start gap-2.5">
+                <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-400/10 dark:text-primary-400">
+                    <x-filament::icon icon="heroicon-m-sparkles" class="h-4 w-4" />
+                </span>
+                <div class="max-w-[85%] rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-2.5 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">
+                    Ask your first question about Swiss taxes, AHV, VAT, or deductions and get an instant, context-aware answer.
+                </div>
+            </div>
         @endif
 
         @if ($chatUrl)
-            <div class="mt-4 flex flex-wrap gap-2">
+            <div class="mt-5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4 dark:border-white/10">
+                <span class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Try asking</span>
                 @foreach ($quickQuestions as $quickQuestion)
-                    <a
-                        href="{{ $chatUrl }}?q={{ urlencode($quickQuestion) }}"
-                        class="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 transition hover:border-primary-300 hover:text-primary-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:text-primary-400"
+                    <x-filament::button
+                        tag="a"
+                        :href="$chatUrl.'?q='.urlencode($quickQuestion)"
+                        color="gray"
+                        size="xs"
+                        icon="heroicon-m-plus"
                     >
                         {{ $quickQuestion }}
-                    </a>
+                    </x-filament::button>
                 @endforeach
             </div>
         @endif
