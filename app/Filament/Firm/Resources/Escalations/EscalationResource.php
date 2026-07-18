@@ -25,6 +25,13 @@ class EscalationResource extends Resource
 {
     protected static ?string $model = AiEscalation::class;
 
+    /**
+     * Pending escalations may not yet belong to a firm (claimed later), so
+     * Filament's automatic tenant scoping cannot apply. getEloquentQuery()
+     * enforces the assignment-scoped boundary explicitly instead.
+     */
+    protected static bool $isScopedToTenant = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLifebuoy;
 
     protected static ?string $navigationLabel = 'Escalations';

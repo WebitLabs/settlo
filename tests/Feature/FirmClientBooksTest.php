@@ -3,6 +3,7 @@
 use App\Filament\Firm\Resources\ClientEntities\ClientEntityResource;
 use App\Filament\Firm\Resources\ClientEntities\Pages\ListClientEntities;
 use App\Filament\Firm\Resources\ClientEntities\Pages\ViewClientEntity;
+use App\Filament\Firm\Resources\Escalations\EscalationResource;
 use App\Models\AccountantAssignment;
 use App\Models\AccountingFirm;
 use App\Models\AccountingFirmMember;
@@ -55,6 +56,17 @@ function actAsFirmAccountant(): void
     Filament::setCurrentPanel(Filament::getPanel('firm'));
     Filament::setTenant(test()->firm);
 }
+
+it('serves the firm pages over HTTP with panel middleware applied', function () {
+    // Livewire::test() skips the panel middleware that registers Filament's
+    // automatic tenancy scope — only a real request catches a missing tenant
+    // ownership relationship (BusinessEntity has none; scoping is manual).
+    $this->actingAs($this->accountant);
+
+    $tenant = ['tenant' => $this->firm];
+    $this->get(ClientEntityResource::getUrl('index', $tenant, panel: 'firm'))->assertOk();
+    $this->get(EscalationResource::getUrl('index', $tenant, panel: 'firm'))->assertOk();
+});
 
 it('lists only entities actively assigned to the current firm', function () {
     $unassigned = BusinessEntity::factory()->forCanton('BE')->create();

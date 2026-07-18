@@ -26,6 +26,14 @@ class ClientEntityResource extends Resource
 {
     protected static ?string $model = BusinessEntity::class;
 
+    /**
+     * BusinessEntity has no singular ownership relationship to a firm — access
+     * is granted through AccountantAssignment rows, so Filament's automatic
+     * tenant scoping cannot apply. getEloquentQuery() enforces the
+     * active-assignment boundary explicitly instead.
+     */
+    protected static bool $isScopedToTenant = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
     protected static ?string $navigationLabel = 'Clients';
