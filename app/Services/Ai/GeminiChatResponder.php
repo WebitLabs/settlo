@@ -74,9 +74,16 @@ class GeminiChatResponder implements ChatResponder
      */
     private function parse(?array $body, int $processingMs): ChatReply
     {
-        $content = data_get($body, 'candidates.0.content.parts.0.text');
+        // Newer Gemini models may interleave non-text parts (e.g. thought
+        // signatures) — join every text-bearing part instead of assuming
+        // the first part carries the answer.
+        $parts = data_get($body, 'candidates.0.content.parts', []);
+        $content = collect(is_array($parts) ? $parts : [])
+            ->pluck('text')
+            ->filter(fn ($piece): bool => is_string($piece))
+            ->implode('');
 
-        if (! is_string($content) || trim($content) === '') {
+        if (trim($content) === '') {
             throw new AiException('The assistant returned an empty response.');
         }
 

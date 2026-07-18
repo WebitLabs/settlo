@@ -148,8 +148,16 @@ class GeminiExtractor implements ReceiptExtractor
      */
     private function parse(?array $body): ExtractionResult
     {
-        $text = data_get($body, 'candidates.0.content.parts.0.text');
-        if (! is_string($text)) {
+        // Newer Gemini models may interleave non-text parts (e.g. thought
+        // signatures) — join every text-bearing part instead of assuming
+        // the first part carries the answer.
+        $parts = data_get($body, 'candidates.0.content.parts', []);
+        $text = collect(is_array($parts) ? $parts : [])
+            ->pluck('text')
+            ->filter(fn ($piece): bool => is_string($piece))
+            ->implode('');
+
+        if ($text === '') {
             throw new ExtractionException('Extraction provider returned no content.');
         }
 
