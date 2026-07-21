@@ -40,24 +40,59 @@ return [
 
         // Private disk for financial documents (receipts). Never served
         // directly — access only through an authenticated, tenant-checked
-        // download route. No public URL.
-        'receipts' => [
-            'driver' => 'local',
-            'root' => storage_path('app/receipts'),
-            'serve' => false,
-            'visibility' => 'private',
-            'throw' => false,
-            'report' => false,
-        ],
+        // download route. No public URL. Local by default; set
+        // RECEIPTS_DISK_DRIVER=s3 to store on DigitalOcean Spaces.
+        'receipts' => match (env('RECEIPTS_DISK_DRIVER', 'local')) {
+            's3' => [
+                'driver' => 's3',
+                'key' => env('DO_SPACES_KEY'),
+                'secret' => env('DO_SPACES_SECRET'),
+                'region' => env('DO_SPACES_REGION'),
+                'bucket' => env('DO_SPACES_BUCKET'),
+                'endpoint' => env('DO_SPACES_ENDPOINT'),
+                'root' => 'receipts',
+                'visibility' => 'private',
+                'use_path_style_endpoint' => false,
+                'throw' => false,
+                'report' => false,
+            ],
+            default => [
+                'driver' => 'local',
+                'root' => storage_path('app/receipts'),
+                'serve' => false,
+                'visibility' => 'private',
+                'throw' => false,
+                'report' => false,
+            ],
+        },
 
-        'public' => [
-            'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
-            'visibility' => 'public',
-            'throw' => false,
-            'report' => false,
-        ],
+        // Public assets (logos). Local + storage:link by default; set
+        // PUBLIC_DISK_DRIVER=s3 to store on DigitalOcean Spaces, with URLs
+        // served through the Spaces CDN (DO_SPACES_CDN_URL).
+        'public' => match (env('PUBLIC_DISK_DRIVER', 'local')) {
+            's3' => [
+                'driver' => 's3',
+                'key' => env('DO_SPACES_KEY'),
+                'secret' => env('DO_SPACES_SECRET'),
+                'region' => env('DO_SPACES_REGION'),
+                'bucket' => env('DO_SPACES_BUCKET'),
+                'endpoint' => env('DO_SPACES_ENDPOINT'),
+                'root' => 'public',
+                'url' => env('DO_SPACES_CDN_URL'),
+                'visibility' => 'public',
+                'use_path_style_endpoint' => false,
+                'throw' => false,
+                'report' => false,
+            ],
+            default => [
+                'driver' => 'local',
+                'root' => storage_path('app/public'),
+                'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+                'visibility' => 'public',
+                'throw' => false,
+                'report' => false,
+            ],
+        },
 
         's3' => [
             'driver' => 's3',

@@ -61,10 +61,10 @@ class ExpenseService
         $disk = Storage::disk('receipts');
         $path = (string) $expense->receipt_path;
 
-        $absolute = $disk->path($path);
         $mime = $disk->mimeType($path) ?: 'application/octet-stream';
+        $contents = (string) $disk->get($path);
 
-        $result = $this->extractor->extract($absolute, $mime);
+        $result = $this->extractor->extract($contents, $mime);
 
         $category = $this->matchCategory($result->categoryHint);
         $amount = round((float) ($result->totalAmount ?? 0), 2);

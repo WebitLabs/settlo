@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AskSettlo\AskSettloController;
+use App\Http\Controllers\CronCommandController;
 use App\Http\Controllers\ExpenseReceiptController;
 use App\Http\Controllers\FirmInvitationController;
 use App\Http\Controllers\ImpersonationController;
@@ -19,6 +20,17 @@ Route::get('/', function () {
 Route::middleware('auth')
     ->post('/impersonation/stop', [ImpersonationController::class, 'stop'])
     ->name('impersonation.stop');
+
+/*
+ * HTTP-triggerable scheduled commands for serverless deploys where no
+ * schedule:run daemon exists. An external cron pinger hits these with the
+ * CRON_SECRET bearer token (or ?token= fallback); the controller whitelists
+ * the runnable commands and refuses everything when no secret is configured.
+ */
+Route::middleware('throttle:30,1')
+    ->get('/cron/{command}', CronCommandController::class)
+    ->whereIn('command', array_keys(CronCommandController::COMMANDS))
+    ->name('cron.run');
 
 // Authorised download of a private receipt file (policy-checked in the controller).
 Route::middleware('auth')

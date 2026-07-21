@@ -37,7 +37,7 @@ class GeminiChatResponder implements ChatResponder
         try {
             $response = $this->http
                 ->baseUrl($this->endpoint)
-                ->timeout(60)
+                ->timeout((int) config('services.gemini.chat_timeout', 60))
                 ->connectTimeout(10)
                 ->retry(2, 1000, throw: false)
                 ->withHeaders(['x-goog-api-key' => $this->apiKey])

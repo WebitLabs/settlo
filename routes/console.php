@@ -16,5 +16,11 @@ Schedule::command('settlo:renew-subscriptions')->hourly();
 // Invoicing
 Schedule::command('settlo:mark-overdue-invoices')->dailyAt('02:00');
 
-// Horizon metrics snapshots (keeps the dashboard graphs populated)
-Schedule::command('horizon:snapshot')->everyFiveMinutes();
+/*
+ * Horizon metrics snapshots (keeps the dashboard graphs populated). Only
+ * registered when the redis queue driver is active — serverless deploys run
+ * the sync driver with no Horizon, where the command would just error.
+ */
+if (config('queue.default') === 'redis') {
+    Schedule::command('horizon:snapshot')->everyFiveMinutes();
+}

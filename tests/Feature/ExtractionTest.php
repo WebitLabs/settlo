@@ -7,14 +7,6 @@ use App\Services\Extraction\ReceiptExtractor;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Http;
 
-function tempReceipt(string $bytes = 'fake-image-bytes'): string
-{
-    $path = tempnam(sys_get_temp_dir(), 'receipt');
-    file_put_contents($path, $bytes);
-
-    return $path;
-}
-
 it('binds the fake extractor when no gemini key is configured', function () {
     config()->set('services.gemini.key', null);
 
@@ -28,7 +20,7 @@ it('binds the gemini extractor when a key is configured', function () {
 });
 
 it('the fake extractor returns a deterministic result', function () {
-    $result = (new FakeExtractor)->extract('/dev/null', 'image/png');
+    $result = (new FakeExtractor)->extract('fake-image-bytes', 'image/png');
 
     expect($result->vendorName)->toBe('SBB CFF FFS')
         ->and($result->totalAmount)->toBe(87.50)
@@ -58,15 +50,29 @@ it('the gemini extractor parses a structured response', function () {
     ]);
 
     $extractor = new GeminiExtractor(app(HttpFactory::class), 'k', 'gemini-2.0-flash', 'https://example.test/v1beta');
-    $path = tempReceipt();
 
-    $result = $extractor->extract($path, 'image/png');
-    unlink($path);
+    $result = $extractor->extract('fake-image-bytes', 'image/png');
 
     expect($result->vendorName)->toBe('Digitec')
         ->and($result->totalAmount)->toBe(1290.00)
         ->and($result->vatRate)->toBe(8.1)
         ->and($result->confidence)->toBe(0.88);
+});
+
+it('the gemini extractor sends the file bytes base64-encoded in the request body', function () {
+    Http::fake([
+        '*' => Http::response([
+            'candidates' => [['content' => ['parts' => [['text' => json_encode(['confidence' => 0.5])]]]]],
+        ], 200),
+    ]);
+
+    $extractor = new GeminiExtractor(app(HttpFactory::class), 'k', 'gemini-2.0-flash', 'https://example.test/v1beta');
+    $extractor->extract('raw-receipt-bytes', 'image/png');
+
+    Http::assertSent(function ($request) {
+        return data_get($request->data(), 'contents.0.parts.1.inline_data.data') === base64_encode('raw-receipt-bytes')
+            && data_get($request->data(), 'contents.0.parts.1.inline_data.mime_type') === 'image/png';
+    });
 });
 
 it('the gemini extractor sends the api key as a header, never in the url', function () {
@@ -77,9 +83,7 @@ it('the gemini extractor sends the api key as a header, never in the url', funct
     ]);
 
     $extractor = new GeminiExtractor(app(HttpFactory::class), 'secret-key', 'gemini-2.0-flash', 'https://example.test/v1beta');
-    $path = tempReceipt();
-    $extractor->extract($path, 'image/png');
-    unlink($path);
+    $extractor->extract('fake-image-bytes', 'image/png');
 
     Http::assertSent(function ($request) {
         return $request->hasHeader('x-goog-api-key', 'secret-key')
@@ -90,18 +94,41 @@ it('the gemini extractor sends the api key as a header, never in the url', funct
 it('the gemini extractor rejects unsupported mime types', function () {
     $extractor = new GeminiExtractor(app(HttpFactory::class), 'k', 'm', 'https://example.test');
 
-    expect(fn () => $extractor->extract('/dev/null', 'application/x-msdownload'))
+    expect(fn () => $extractor->extract('fake-image-bytes', 'application/x-msdownload'))
         ->toThrow(ExtractionException::class);
+});
+
+it('the gemini extractor rejects empty file contents', function () {
+    Http::fake();
+
+    $extractor = new GeminiExtractor(app(HttpFactory::class), 'k', 'm', 'https://example.test');
+
+    expect(fn () => $extractor->extract('', 'image/png'))
+        ->toThrow(ExtractionException::class, 'Uploaded file is empty.');
+
+    Http::assertNothingSent();
+});
+
+it('the gemini extractor rejects files above the 20MB inline limit', function () {
+    Http::fake();
+
+    $extractor = new GeminiExtractor(app(HttpFactory::class), 'k', 'm', 'https://example.test');
+
+    expect(fn () => $extractor->extract(str_repeat('a', GeminiExtractor::MAX_BYTES + 1), 'image/png'))
+        ->toThrow(ExtractionException::class, 'Uploaded file exceeds the maximum size for extraction.');
+
+    Http::assertNothingSent();
 });
 
 it('the gemini extractor throws on a provider error status', function () {
     Http::fake(['*' => Http::response('nope', 500)]);
 
     $extractor = new GeminiExtractor(app(HttpFactory::class), 'k', 'm', 'https://example.test');
-    $path = tempReceipt();
 
-    $call = fn () => $extractor->extract($path, 'image/png');
+    expect(fn () => $extractor->extract('fake-image-bytes', 'image/png'))
+        ->toThrow(ExtractionException::class);
+});
 
-    expect($call)->toThrow(ExtractionException::class);
-    unlink($path);
+it('the gemini extraction timeout is configurable and defaults to 60 seconds', function () {
+    expect((int) config('services.gemini.extract_timeout'))->toBe(60);
 });

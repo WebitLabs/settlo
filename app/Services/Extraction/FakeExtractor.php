@@ -9,7 +9,7 @@ namespace App\Services\Extraction;
  */
 class FakeExtractor implements ReceiptExtractor
 {
-    public function extract(string $absolutePath, string $mimeType): ExtractionResult
+    public function extract(string $contents, string $mimeType): ExtractionResult
     {
         return new ExtractionResult(
             vendorName: 'SBB CFF FFS',

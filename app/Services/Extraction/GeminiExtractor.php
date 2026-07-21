@@ -34,33 +34,24 @@ class GeminiExtractor implements ReceiptExtractor
         private readonly string $endpoint,
     ) {}
 
-    public function extract(string $absolutePath, string $mimeType): ExtractionResult
+    public function extract(string $contents, string $mimeType): ExtractionResult
     {
         if (! in_array($mimeType, self::SUPPORTED_MIME_TYPES, true)) {
             throw new ExtractionException("Unsupported file type: {$mimeType}.");
         }
 
-        if (! is_readable($absolutePath)) {
-            throw new ExtractionException('Uploaded file is not readable.');
-        }
-
-        $bytes = filesize($absolutePath);
-        if ($bytes === false || $bytes === 0) {
+        if ($contents === '') {
             throw new ExtractionException('Uploaded file is empty.');
         }
-        if ($bytes > self::MAX_BYTES) {
-            throw new ExtractionException('Uploaded file exceeds the maximum size for extraction.');
-        }
 
-        $contents = file_get_contents($absolutePath);
-        if ($contents === false) {
-            throw new ExtractionException('Failed to read the uploaded file.');
+        if (strlen($contents) > self::MAX_BYTES) {
+            throw new ExtractionException('Uploaded file exceeds the maximum size for extraction.');
         }
 
         try {
             $response = $this->http
                 ->baseUrl($this->endpoint)
-                ->timeout(60)
+                ->timeout((int) config('services.gemini.extract_timeout', 60))
                 ->connectTimeout(10)
                 ->retry(2, 1000, throw: false)
                 ->withHeaders(['x-goog-api-key' => $this->apiKey])

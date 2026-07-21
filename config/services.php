@@ -39,6 +39,8 @@ return [
         'key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemini-3.5-flash'),
         'endpoint' => env('GEMINI_ENDPOINT', 'https://generativelanguage.googleapis.com/v1beta'),
+        'extract_timeout' => env('GEMINI_EXTRACT_TIMEOUT', 60),
+        'chat_timeout' => env('GEMINI_CHAT_TIMEOUT', 60),
     ],
 
 ];

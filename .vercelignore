@@ -1,0 +1,53 @@
+# Dependencies — Vercel installs these itself (composer install / npm install).
+# Exception: Filament package CSS must be present for the Vite build, because
+# resources/css/filament/theme.css imports it from vendor/.
+/vendor/*
+!/vendor/filament
+/vendor/filament/*/*
+!/vendor/filament/*/resources
+!/vendor/filament/*/dist
+/vendor/filament/*/resources/*
+!/vendor/filament/*/resources/css
+/node_modules
+
+# Secrets and local environment
+/.env
+/.env.*
+/auth.json
+
+# Tests and tooling
+/tests
+/phpunit.xml
+/.phpunit.cache
+/boost.json
+
+# Planning and docs not needed at runtime
+/settlo-specs
+/.planning
+/GAP_ANALYSIS.md
+/PLAN.md
+/PROGRESS.md
+/SECURITY.md
+/CLAUDE.md
+/README.md
+
+# Local infrastructure
+/docker-compose.yml
+
+# Locally generated bootstrap manifests reference dev-only packages that are
+# absent from Vercel's --no-dev vendor; the runtime regenerates them in /tmp.
+/bootstrap/cache/*.php
+
+# Runtime junk — regenerated or unused on the read-only lambda filesystem
+/storage/logs
+/storage/pail
+/storage/framework/cache/data
+/storage/framework/sessions
+/storage/framework/testing
+/storage/framework/views
+/storage/app/private
+/storage/app/public
+/public/hot
+/public/storage
+*.log
+.DS_Store
