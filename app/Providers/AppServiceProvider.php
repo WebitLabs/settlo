@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Billing\DummyGateway;
 use App\Billing\PaymentGateway;
+use App\Http\Responses\PanelScopedLoginResponse;
 use App\Services\Ai\ChatResponder;
 use App\Services\Ai\FakeAskSettloResponder;
 use App\Services\Ai\GeminiChatResponder;
@@ -11,6 +12,7 @@ use App\Services\Audit\ImpersonationService;
 use App\Services\Extraction\FakeExtractor;
 use App\Services\Extraction\GeminiExtractor;
 use App\Services\Extraction\ReceiptExtractor;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -24,6 +26,10 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // Post-login redirects must stay inside the panel that was signed
+        // in to; a stale intended URL from another panel would 403.
+        $this->app->bind(LoginResponse::class, PanelScopedLoginResponse::class);
+
         // Payment provider is swappable via config; the POC ships the dummy.
         $this->app->bind(PaymentGateway::class, function () {
             return match (config('settlo.payment_gateway', 'dummy')) {
