@@ -3,6 +3,7 @@
 use App\Enums\AiEscalationStatus;
 use App\Enums\MaritalStatus;
 use App\Enums\VatStatus;
+use App\Filament\App\Pages\AskSettlo;
 use App\Jobs\SimulateAccountantAnswer;
 use App\Models\AiEscalation;
 use App\Models\AiMessage;
@@ -15,7 +16,6 @@ use App\Services\Ai\EscalationService;
 use Database\Seeders\ReferenceDataSeeder;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\Fluent\AssertableJson;
-use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->seed(ReferenceDataSeeder::class);
@@ -59,23 +59,45 @@ function askAssistantMessage(User $user, BusinessEntity $entity, string $questio
     return $conversation->messages()->where('role', 'assistant')->firstOrFail();
 }
 
-it('renders the chat page for the owner with conversations and quota props', function () {
+it('redirects the legacy chat URL into the panel page', function () {
+    [$user, $entity] = askOwner();
+
+    $this->actingAs($user)
+        ->get(route('ask-settlo.index', $entity))
+        ->assertRedirect(AskSettlo::getUrl(['tenant' => $entity], panel: 'app'));
+});
+
+it('renders the panel chat page for the owner', function () {
+    [$user, $entity] = askOwner();
+
+    $this->actingAs($user)
+        ->get(AskSettlo::getUrl(['tenant' => $entity], panel: 'app'))
+        ->assertOk()
+        ->assertSee('ask-settlo-root');
+});
+
+it('serves the chat bootstrap payload with conversations and quota', function () {
     [$user, $entity] = askOwner();
     askAssistantMessage($user, $entity);
 
     $this->actingAs($user)
-        ->get(route('ask-settlo.index', $entity))
+        ->getJson(route('ask-settlo.bootstrap', $entity))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('AskSettlo/Index')
-            ->has('conversations', 1)
-            ->has('quota', fn (Assert $quota) => $quota
-                ->where('total', 1)
-                ->where('canEscalate', true)
-                ->etc())
-            ->has('suggestedQuestions', 8)
-            ->has('context')
-            ->has('accountant'));
+        ->assertJsonCount(1, 'conversations')
+        ->assertJsonCount(8, 'suggestedQuestions')
+        ->assertJsonPath('quota.total', 1)
+        ->assertJsonPath('quota.canEscalate', true)
+        ->assertJsonStructure(['businessEntityId', 'conversations', 'activeConversation', 'context', 'quota', 'accountant', 'suggestedQuestions']);
+});
+
+it('forbids the bootstrap payload for another owner\'s entity', function () {
+    [, $entity] = askOwner();
+    $intruder = User::factory()->owner()->create();
+    Subscription::factory()->for($intruder)->onPlan('pro', 1)->active()->create();
+
+    $this->actingAs($intruder)
+        ->getJson(route('ask-settlo.bootstrap', $entity))
+        ->assertForbidden();
 });
 
 it('forbids access to another owner\'s business entity', function () {
@@ -144,11 +166,11 @@ it('rate-limits Ask Settlo requests per authenticated user', function () {
 
     [$user, $entity] = askOwner();
 
-    $this->actingAs($user)->get(route('ask-settlo.index', $entity))->assertOk();
-    $this->actingAs($user)->get(route('ask-settlo.index', $entity))->assertOk();
+    $this->actingAs($user)->getJson(route('ask-settlo.bootstrap', $entity))->assertOk();
+    $this->actingAs($user)->getJson(route('ask-settlo.bootstrap', $entity))->assertOk();
 
     $this->actingAs($user)
-        ->get(route('ask-settlo.index', $entity))
+        ->getJson(route('ask-settlo.bootstrap', $entity))
         ->assertStatus(429);
 });
 

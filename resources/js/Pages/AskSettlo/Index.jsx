@@ -1,4 +1,3 @@
-import { Head } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AccountantPanel from './AccountantPanel';
 import ChatPanel from './ChatPanel';
@@ -238,8 +237,7 @@ export default function Index({ businessEntityId, conversations: initialConversa
 
     return (
         <>
-            <Head title="Ask Settlo" />
-            <div className="flex h-screen w-full overflow-hidden bg-gray-100 font-sans text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+            <div className="flex h-[calc(100vh-14rem)] min-h-[32rem] w-full overflow-hidden rounded-xl bg-gray-100 font-sans text-sm text-gray-900 ring-1 ring-gray-950/5 dark:bg-gray-950 dark:text-gray-100 dark:ring-white/10">
                 <ConversationList
                     conversations={conversations}
                     activeId={activeId}

@@ -2,6 +2,7 @@
 
 namespace App\Filament\App\Widgets;
 
+use App\Filament\App\Pages\AskSettlo;
 use App\Models\AiConversation;
 use App\Models\BusinessEntity;
 use Filament\Facades\Filament;
@@ -46,7 +47,7 @@ class AskSettloPreview extends Widget
 
         return [
             'chatUrl' => $entity instanceof BusinessEntity
-                ? route('ask-settlo.index', $entity)
+                ? AskSettlo::getUrl(['tenant' => $entity], panel: 'app')
                 : null,
             'hasConversation' => $conversation !== null,
             'title' => $conversation?->title,

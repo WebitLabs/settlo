@@ -5,6 +5,7 @@ namespace App\Http\Controllers\AskSettlo;
 use App\Billing\QuotaExceededException;
 use App\Enums\AiEscalationStatus;
 use App\Enums\PlanFeature;
+use App\Filament\App\Pages\AskSettlo as AskSettloPage;
 use App\Http\Controllers\Controller;
 use App\Models\AiConversation;
 use App\Models\AiEscalation;
@@ -17,13 +18,12 @@ use App\Services\Ai\EscalationService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
-use Inertia\Inertia;
-use Inertia\Response as InertiaResponse;
 use InvalidArgumentException;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -54,14 +54,28 @@ class AskSettloController extends Controller
         'How do I file my Swiss tax declaration?',
     ];
 
-    public function index(Request $request, BusinessEntity $businessEntity, ChatContextAssembler $assembler): InertiaResponse
+    /**
+     * The chat now lives inside the app panel; the old standalone URL keeps
+     * working as a redirect so bookmarks and older links stay valid.
+     */
+    public function index(Request $request, BusinessEntity $businessEntity): RedirectResponse
+    {
+        $this->authorizeEntityAccess($request, $businessEntity);
+
+        return redirect()->to(AskSettloPage::getUrl(['tenant' => $businessEntity], panel: 'app'));
+    }
+
+    /**
+     * Initial data for the chat island mounted on the panel page.
+     */
+    public function bootstrap(Request $request, BusinessEntity $businessEntity, ChatContextAssembler $assembler): JsonResponse
     {
         $user = $this->authorizeEntityAccess($request, $businessEntity);
 
         $conversations = $this->conversationsFor($user, $businessEntity);
         $active = $conversations->first();
 
-        return Inertia::render('AskSettlo/Index', [
+        return response()->json([
             'businessEntityId' => $businessEntity->getKey(),
             'conversations' => $conversations->map(fn (AiConversation $c): array => $this->presentConversationSummary($c))->values(),
             'activeConversation' => $active !== null ? $this->presentConversation($active) : null,

@@ -49,6 +49,7 @@ Route::middleware(['auth', 'throttle:ask-settlo'])
     ->name('ask-settlo.')
     ->group(function () {
         Route::get('/', [AskSettloController::class, 'index'])->name('index');
+        Route::get('/bootstrap', [AskSettloController::class, 'bootstrap'])->name('bootstrap');
         Route::post('/conversations', [AskSettloController::class, 'storeConversation'])->name('conversations.store');
         Route::get('/conversations/{conversation}', [AskSettloController::class, 'showConversation'])->name('conversations.show');
         Route::post('/conversations/{conversation}/messages', [AskSettloController::class, 'storeMessage'])->name('messages.store');

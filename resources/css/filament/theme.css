@@ -3,3 +3,5 @@
 @source '../../../app/Filament/**/*';
 @source '../../views/filament/**/*';
 @source '../../views/firm/**/*';
+@source '../../js/Pages/AskSettlo/**/*';
+@source '../../js/ask-settlo-island.jsx';
