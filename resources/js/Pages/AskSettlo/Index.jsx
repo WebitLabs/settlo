@@ -27,6 +27,8 @@ export default function Index({ businessEntityId, conversations: initialConversa
     const [resolvingId, setResolvingId] = useState(null);
     const [toast, setToast] = useState(null);
     const [chips, setChips] = useState(() => sample(suggestedQuestions, 4));
+    // On narrow containers the side panes collapse into drawers: 'list' | 'accountant' | null.
+    const [drawer, setDrawer] = useState(null);
 
     const messageRefs = useRef({});
 
@@ -86,6 +88,7 @@ export default function Index({ businessEntityId, conversations: initialConversa
 
     const selectConversation = useCallback(
         async (id) => {
+            setDrawer(null);
             if (id === activeId) {
                 return;
             }
@@ -103,6 +106,7 @@ export default function Index({ businessEntityId, conversations: initialConversa
     );
 
     const newConversation = useCallback(() => {
+        setDrawer(null);
         setActiveId(null);
         setConversationTitle('New conversation');
         setMessages([]);
@@ -110,8 +114,8 @@ export default function Index({ businessEntityId, conversations: initialConversa
     }, [suggestedQuestions]);
 
     const sendMessage = useCallback(
-        async (content) => {
-            let conversationId = activeId;
+        async (content, { forceNew = false } = {}) => {
+            let conversationId = forceNew ? null : activeId;
             let isNew = false;
 
             if (!conversationId) {
@@ -133,11 +137,11 @@ export default function Index({ businessEntityId, conversations: initialConversa
             const userTempId = nextTempId();
             const assistantTempId = nextTempId();
 
-            setMessages((prev) => [
-                ...prev,
+            const pending = [
                 { tempId: userTempId, role: 'user', content },
                 { tempId: assistantTempId, role: 'assistant', content: '', streaming: true },
-            ]);
+            ];
+            setMessages((prev) => (forceNew ? pending : [...prev, ...pending]));
             setStreaming(true);
 
             if (isNew) {
@@ -200,7 +204,11 @@ export default function Index({ businessEntityId, conversations: initialConversa
                     updateSummary(activeId, { badge: 'pending' });
                 }
             } catch (error) {
-                setToast(error.message || 'Could not send to accountant.');
+                setToast(
+                    error.status >= 500
+                        ? 'We could not send this to your accountant. Please try again in a moment.'
+                        : error.message || 'Could not send to accountant.',
+                );
             } finally {
                 setEscalatingId(null);
             }
@@ -228,8 +236,27 @@ export default function Index({ businessEntityId, conversations: initialConversa
         [base, activeId, updateSummary],
     );
 
+    // Deep link: /…/ask-settlo?q=… asks the question once in a fresh conversation.
+    const autoAsked = useRef(false);
+    useEffect(() => {
+        if (autoAsked.current) {
+            return;
+        }
+        const url = new URL(window.location.href);
+        const question = (url.searchParams.get('q') ?? '').trim();
+        if (question === '') {
+            return;
+        }
+        autoAsked.current = true;
+        url.searchParams.delete('q');
+        window.history.replaceState(window.history.state, '', url);
+        setConversationTitle(question.slice(0, 50));
+        sendMessage(question.slice(0, 4000), { forceNew: true });
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     const scrollToEscalation = useCallback((escalation) => {
         const node = messageRefs.current[escalation.messageId];
+        setDrawer(null);
         if (node) {
             node.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -237,8 +264,9 @@ export default function Index({ businessEntityId, conversations: initialConversa
 
     return (
         <>
-            <div className="flex h-[calc(100vh-14rem)] min-h-[32rem] w-full overflow-hidden rounded-xl bg-gray-100 font-sans text-sm text-gray-900 ring-1 ring-gray-950/5 dark:bg-gray-950 dark:text-gray-100 dark:ring-white/10">
+            <div className="@container relative isolate flex h-[calc(100vh-14rem)] min-h-[32rem] w-full overflow-hidden rounded-xl bg-gray-100 font-sans text-sm text-gray-900 ring-1 ring-gray-950/5 dark:bg-gray-950 dark:text-gray-100 dark:ring-white/10">
                 <ConversationList
+                    className="hidden @3xl:flex"
                     conversations={conversations}
                     activeId={activeId}
                     onSelect={selectConversation}
@@ -258,14 +286,45 @@ export default function Index({ businessEntityId, conversations: initialConversa
                     escalatingId={escalatingId}
                     resolvingId={resolvingId}
                     messageRefs={messageRefs}
+                    onOpenConversations={() => setDrawer('list')}
+                    onOpenAccountant={() => setDrawer('accountant')}
                 />
 
                 <AccountantPanel
+                    className="hidden @6xl:flex"
                     accountant={accountant}
                     quota={quota}
                     escalations={escalations}
                     onSelectEscalation={scrollToEscalation}
                 />
+
+                {drawer !== null && (
+                    <>
+                        <button
+                            type="button"
+                            aria-label="Close panel"
+                            onClick={() => setDrawer(null)}
+                            className="absolute inset-0 z-10 bg-gray-950/30 dark:bg-black/50"
+                        />
+                        {drawer === 'list' ? (
+                            <ConversationList
+                                className="absolute inset-y-0 left-0 z-20 flex shadow-xl"
+                                conversations={conversations}
+                                activeId={activeId}
+                                onSelect={selectConversation}
+                                onNew={newConversation}
+                            />
+                        ) : (
+                            <AccountantPanel
+                                className="absolute inset-y-0 right-0 z-20 flex shadow-xl"
+                                accountant={accountant}
+                                quota={quota}
+                                escalations={escalations}
+                                onSelectEscalation={scrollToEscalation}
+                            />
+                        )}
+                    </>
+                )}
 
                 {toast && (
                     <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-2.5 text-[13px] text-white shadow-lg ring-1 ring-white/10 dark:bg-gray-800">

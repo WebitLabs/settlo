@@ -29,7 +29,7 @@ function badgeDot(badge) {
  * Left pane: searchable, date-grouped list of the owner's conversations plus a
  * "New conversation" action.
  */
-export default function ConversationList({ conversations, activeId, onSelect, onNew }) {
+export default function ConversationList({ conversations, activeId, onSelect, onNew, className = 'flex' }) {
     const [query, setQuery] = useState('');
 
     const grouped = useMemo(() => {
@@ -48,7 +48,7 @@ export default function ConversationList({ conversations, activeId, onSelect, on
     }, [conversations, query]);
 
     return (
-        <aside className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900">
+        <aside className={`${className} w-72 shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900`}>
             <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3.5 dark:border-white/10">
                 <span className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
                     <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#00A878] text-[11px] font-semibold text-white">

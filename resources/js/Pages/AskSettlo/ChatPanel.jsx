@@ -5,7 +5,7 @@ const CONFIDENCE_LABEL = 'Based on Swiss tax law · Verify for your specific sit
 
 function ContextPills({ context }) {
     const pill =
-        'inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300';
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300';
 
     return (
         <div className="flex flex-wrap gap-1.5">
@@ -48,7 +48,7 @@ function AssistantMessage({ message, quota, onEscalate, onResolve, escalatingId,
             <SettloAvatar />
             <div className="min-w-0 flex-1">
                 <div className="w-fit max-w-[85%] rounded-2xl rounded-tl-sm border border-gray-200 bg-white px-4 py-3 text-[13px] leading-relaxed text-gray-900 shadow-sm dark:border-white/10 dark:bg-gray-800 dark:text-gray-100">
-                    {isStreaming ? <TypingIndicator /> : <p className="whitespace-pre-wrap">{message.content}</p>}
+                    {isStreaming ? <TypingIndicator /> : <p className="break-words whitespace-pre-wrap">{message.content}</p>}
                 </div>
 
                 {!isStreaming && message.id && (
@@ -103,6 +103,20 @@ function AssistantMessage({ message, quota, onEscalate, onResolve, escalatingId,
     );
 }
 
+function PaneToggle({ label, onClick, className, children }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            title={label}
+            className={`${className} flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-[#00A878] hover:text-[#0F6E56] dark:border-white/10 dark:bg-white/5 dark:text-gray-400 dark:hover:text-[#34d3a6]`}
+        >
+            {children}
+        </button>
+    );
+}
+
 /**
  * Center pane: context header, message thread, suggested-question chips on an
  * empty conversation, and the composer.
@@ -120,6 +134,8 @@ export default function ChatPanel({
     escalatingId,
     resolvingId,
     messageRefs,
+    onOpenConversations,
+    onOpenAccountant,
 }) {
     const [draft, setDraft] = useState('');
     const scrollRef = useRef(null);
@@ -149,16 +165,34 @@ export default function ChatPanel({
     const isEmpty = messages.length === 0;
 
     return (
-        <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-100 dark:bg-gray-950">
-            <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-5 py-3 dark:border-white/10 dark:bg-gray-900">
-                <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{conversationTitle}</p>
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500">Settlo AI · Swiss tax assistant</p>
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-100 @3xl:min-w-[20rem] dark:bg-gray-950">
+            <header className="flex shrink-0 flex-col gap-2 border-b border-gray-200 bg-white px-5 py-3 dark:border-white/10 dark:bg-gray-900">
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <PaneToggle label="Show conversations" onClick={onOpenConversations} className="@3xl:hidden">
+                            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                                <path
+                                    fillRule="evenodd"
+                                    d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z"
+                                    clipRule="evenodd"
+                                />
+                            </svg>
+                        </PaneToggle>
+                        <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{conversationTitle}</p>
+                            <p className="truncate text-[11px] text-gray-400 dark:text-gray-500">Settlo AI · Swiss tax assistant</p>
+                        </div>
+                    </div>
+                    <PaneToggle label="Show my accountant" onClick={onOpenAccountant} className="@6xl:hidden">
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                            <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" />
+                        </svg>
+                    </PaneToggle>
                 </div>
                 <ContextPills context={context} />
             </header>
 
-            <div ref={scrollRef} className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-6">
+            <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-6">
                 {isEmpty && (
                     <div className="m-auto w-full max-w-lg text-center">
                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00A878] text-lg font-semibold text-white shadow-lg shadow-[#00A878]/25">

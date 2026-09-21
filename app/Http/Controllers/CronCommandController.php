@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Runs a whitelisted scheduled command over HTTP for serverless deploys where
@@ -20,6 +21,10 @@ class CronCommandController
         'reset-quotas' => 'settlo:reset-quotas',
         'renew-subscriptions' => 'settlo:renew-subscriptions',
         'mark-overdue-invoices' => 'settlo:mark-overdue-invoices',
+        // Drains the queue on deploys that have no long-lived worker.
+        'drain-queue' => 'settlo:drain-queue',
+        // Post-deploy migrations + reference data (idempotent).
+        'deploy' => 'settlo:deploy',
     ];
 
     public function __invoke(Request $request, string $command): JsonResponse
@@ -36,11 +41,22 @@ class CronCommandController
 
         $startedAt = microtime(true);
         $exitCode = Artisan::call($artisanCommand);
+        $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
+
+        // A failing scheduled command must not look like a healthy ping: the
+        // pinger's own dashboard is the only place this is ever noticed.
+        if ($exitCode !== 0) {
+            Log::error('Scheduled command failed over HTTP.', [
+                'command' => $artisanCommand,
+                'exit_code' => $exitCode,
+                'duration_ms' => $durationMs,
+            ]);
+        }
 
         return response()->json([
             'command' => $artisanCommand,
             'exit_code' => $exitCode,
-            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
-        ]);
+            'duration_ms' => $durationMs,
+        ], $exitCode === 0 ? 200 : 500);
     }
 }

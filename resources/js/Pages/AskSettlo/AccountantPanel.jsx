@@ -2,13 +2,13 @@
  * Right pane: the assigned accountant card, the monthly human-answer quota
  * tracker, and a compact escalation history that scrolls the chat to a message.
  */
-export default function AccountantPanel({ accountant, quota, escalations, onSelectEscalation }) {
+export default function AccountantPanel({ accountant, quota, escalations, onSelectEscalation, className = 'flex' }) {
     const percent = quota.total > 0 ? Math.min(100, Math.round((quota.used / quota.total) * 100)) : 0;
     const maxedOut = quota.canEscalate && quota.remaining === 0;
     const barColor = percent >= 100 ? 'bg-rose-500' : percent >= 75 ? 'bg-amber-500' : 'bg-[#00A878]';
 
     return (
-        <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900">
+        <aside className={`${className} w-80 shrink-0 flex-col overflow-hidden border-l border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900`}>
             <div className="border-b border-gray-200 px-4 py-3.5 dark:border-white/10">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">My accountant</p>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">Human verification</p>
@@ -55,7 +55,7 @@ export default function AccountantPanel({ accountant, quota, escalations, onSele
                 </p>
                 {maxedOut && (
                     <a
-                        href="/app"
+                        href={quota.billingUrl ?? '/app/billing'}
                         className="mt-3 flex items-center justify-center gap-1 rounded-lg bg-[#00A878] px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#0F6E56]"
                     >
                         Upgrade to Confidence
