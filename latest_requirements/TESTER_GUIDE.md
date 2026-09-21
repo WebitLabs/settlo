@@ -1,7 +1,7 @@
 # Settlo — tester guide
 
 **Environment:** https://settlo-one.vercel.app
-**Build:** `1122dc4`, deployed 2026-09-21
+**Build:** `40153c5`, deployed 2026-09-21
 **Contains:** the September 2026 feedback round (BUG-01…59 and the restructuring email), plus a full gap round.
 
 > **This file holds the demo passwords.** They belong to three throwaway demo accounts on a test environment and are rotatable — re-running the demo seeder issues a fresh set. Still, don't post the file publicly.
@@ -15,17 +15,17 @@ Log in at the panel URL for the role. All three accounts are demo fixtures with 
 **Business owner — Anna Müller**
 - Sign in: https://settlo-one.vercel.app/app
 - Email: `anna@test.ch`
-- Password: `OWNER_PASSWORD`
+- Password: `44Dl8W5Gjo4cAfLZBFqW`
 
 **Accountant — Maria Schneider, Müller Treuhand AG**
 - Sign in: https://settlo-one.vercel.app/firm
 - Email: `maria@test.ch`
-- Password: `ACCOUNTANT_PASSWORD`
+- Password: `yhbl2iPTCIujn39A0rkG`
 
 **Platform admin**
 - Sign in: https://settlo-one.vercel.app/admin
 - Email: `admin@settlo.ch`
-- Password: `ADMIN_PASSWORD`
+- Password: `gBuFt2eJ4rkA8S1r6dSw`
 
 The passwords are letters and digits only, so they survive copying out of this document.
 
