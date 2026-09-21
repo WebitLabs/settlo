@@ -12,6 +12,7 @@ enum SubscriptionStatus: string implements HasColor, HasLabel
     case PastDue = 'past_due';
     case Cancelled = 'cancelled';
     case Expired = 'expired';
+    case Incomplete = 'incomplete';
 
     public function getLabel(): string
     {
@@ -21,6 +22,7 @@ enum SubscriptionStatus: string implements HasColor, HasLabel
             self::PastDue => 'Past due',
             self::Cancelled => 'Cancelled',
             self::Expired => 'Expired',
+            self::Incomplete => 'Payment required',
         };
     }
 
@@ -30,13 +32,14 @@ enum SubscriptionStatus: string implements HasColor, HasLabel
             self::Trialing => 'info',
             self::Active => 'success',
             self::PastDue => 'warning',
-            self::Cancelled, self::Expired => 'danger',
+            self::Cancelled, self::Expired, self::Incomplete => 'danger',
         };
     }
 
     /**
-     * Whether the subscription grants write access to the app. Expired and
-     * cancelled subscriptions drop the account into a read-only locked state.
+     * Whether the subscription grants write access to the workspace. Expired and
+     * cancelled subscriptions drop it into a read-only locked state; an
+     * incomplete one (checkout not finished) grants nothing.
      */
     public function grantsAccess(): bool
     {
