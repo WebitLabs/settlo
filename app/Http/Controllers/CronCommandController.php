@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Runs a whitelisted scheduled command over HTTP for serverless deploys where
@@ -44,7 +45,17 @@ class CronCommandController
         $artisanCommand = self::COMMANDS[$command] ?? abort(404);
 
         $startedAt = microtime(true);
-        $exitCode = Artisan::call($artisanCommand);
+
+        try {
+            $exitCode = Artisan::call($artisanCommand);
+            $failure = null;
+        } catch (Throwable $exception) {
+            // A command that throws would otherwise render the generic error
+            // page, which says nothing to whoever (or whatever) called this.
+            $exitCode = 1;
+            $failure = $exception::class.': '.$exception->getMessage();
+        }
+
         $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         // A failing scheduled command must not look like a healthy ping: the
@@ -54,6 +65,7 @@ class CronCommandController
                 'command' => $artisanCommand,
                 'exit_code' => $exitCode,
                 'duration_ms' => $durationMs,
+                'error' => $failure,
             ]);
         }
 
@@ -63,7 +75,7 @@ class CronCommandController
             'duration_ms' => $durationMs,
             // Without the output a failure says nothing about what went wrong,
             // and the demo seeder's generated passwords are shown only here.
-            'output' => trim(Artisan::output()),
+            'output' => $failure ?? trim(Artisan::output()),
         ], $exitCode === 0 ? 200 : 500);
     }
 }
