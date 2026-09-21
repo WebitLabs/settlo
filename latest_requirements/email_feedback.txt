@@ -1,0 +1,98 @@
+Salut, Marius!
+
+Am făcut astăzi un review mai detaliat al fluxului de onboarding și al dashboard-ului și cred că ar fi bine să facem câteva modificări de arhitectură acum, cât încă suntem la început. Cred că ne vor ajuta foarte mult pe termen lung și ne vor scuti de refactorizări mai târziu.
+
+1.⁠ ⁠Structura aplicației
+Cred că este important să schimbăm puțin perspectiva aplicației.
+
+În centrul aplicației nu mai este business-ul, ci utilizatorul (persoana fizică).
+
+Fiecare utilizator are:
+
+Personal Profile;
+Tax Profile;
+setările personale.
+Apoi, în cadrul aceluiași cont, utilizatorul poate crea unul sau mai multe Business Workspaces.
+
+Structura ar trebui să fie:
+
+User (persoană fizică)
+
+Personal Profile
+Tax Profile
+Business Workspace 1
+Business Workspace 2
+Business Workspace 3
+etc.
+În viitor, același utilizator va putea avea atât Sole Proprietorship-uri, cât și GmbH sau AG, fără să schimbăm arhitectura aplicației.
+
+2.⁠ ⁠Modelul de business
+Fiecare Business Workspace va avea propriul abonament lunar sau anual.
+
+De exemplu:
+
+primul business – preț standard;
+al doilea business – discount;
+al treilea business – discount și mai mare etc.
+În felul acesta încurajăm utilizatorii să își administreze toate business-urile în Settlo, în loc să își creeze mai multe conturi.
+
+3.⁠ ⁠Onboarding
+Aș simplifica foarte mult onboarding-ul.
+
+Obiectivul este ca utilizatorul să își creeze contul cât mai repede.
+
+Ideal:
+
+un singur flux;
+validare email;
+validare număr de telefon prin OTP prin SMS;
+după care intră direct în aplicație și completează restul informațiilor necesare.
+Cu cât cerem mai puține informații înainte ca utilizatorul să intre efectiv în produs, cu atât rata de finalizare va fi mai mare.
+
+4.⁠ ⁠Dashboard
+Dashboard-ul principal trebuie să fie dashboard-ul utilizatorului (persoanei fizice).
+
+Acolo vor apărea:
+
+toate Business Workspaces;
+Tax Profile;
+Personal Tax;
+informațiile personale și consolidarea tuturor business-urilor.
+Fiecare Business Workspace va avea apoi propriul dashboard, unde găsim:
+
+invoices;
+expenses;
+clients;
+bank accounts;
+VAT;
+profit;
+cash etc.
+În felul acesta separăm foarte clar persoana fizică de fiecare business.
+
+5.⁠ ⁠Layout & UX
+Aș acorda puțin mai multă atenție și layout-ului.
+
+În momentul de față, ecranele de onboarding folosesc practic un layout de mobil, deși utilizatorul este pe desktop. Formularul ocupă foarte puțin din lățimea ecranului și lasă impresia că este doar mărit pe un monitor mare.
+
+Cred că ar trebui să avem două experiențe:
+
+Desktop – formular mai lat, folosind mai bine spațiul disponibil și oferind o experiență mai premium;
+Mobile – dar intr-o viitoare aplicatie nativă de mobil.
+Pe desktop ar trebui să profităm de spațiul disponibil și să evităm senzația că utilizatorul completează o aplicație de mobil într-un browser.
+
+6.⁠ ⁠Stripe
+Din punctul meu de vedere, pentru partea de abonamente și plăți aș merge pe Stripe.
+
+Fiecare utilizator va avea un singur customer Stripe. Fiecare Business Workspace va avea propria subscription, iar nivelul de preț/discount se stabilește în funcție de câte Business Workspaces (Subscriptions) active are utilizatorul respectiv.
+
+Aștept de la Cristina să îmi comunice pe ce entitate vom deschide contul de Stripe, ca să putem pregăti și partea de billing în direcția corectă.
+
+Dacă lucrezi în weekend la modificări și apare orice întrebare sau ai nevoie să discutăm vreo decizie de UX, arhitectură sau funcționalitate, sună-mă oricând. Prefer să clarificăm lucrurile pe loc decât să muncești de două ori pe aceeași funcționalitate.
+
+Aici documentul cu feedback-ul detaliat: toate BUG-urile care sunt scrise cu albastru sau au un comment albastru sunt verificate de mine. Celelalte sunt generate automat cu Claude Testing, dar le verific unul cate unul pe toate in seara asta sau cel tarziu maine dimineata: https://docs.google.com/spreadsheets/d/15rneYPWGob5I0HRorUnm4xyU-2TtrK8rCtnpJJdb42U/edit?usp=sharing
+
+Mulțumesc! 🚀 
+
+Spor!
+
+Bogdan

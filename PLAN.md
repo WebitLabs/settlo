@@ -11,7 +11,8 @@ Sources: `settlo-specs/` (business spec, backlog, tax engine v2.0, prisma schema
 ### Panels (Filament v5)
 | Panel | Path | Users | Tenancy |
 |---|---|---|---|
-| **App** | `/app` | Self-employed owners (`role: owner`) | Tenant = `BusinessEntity` (multi-entity ready, one entity in POC UI) |
+| **App (Personal area)** | `/app` | Owners (`role: owner`) | None: registration, personal dashboard, profile, tax profile, businesses, billing |
+| **Workspace** | `/app/w/{uuid}` | Owners (`role: owner`) | Tenant = `BusinessEntity` (one workspace per business, N per owner) |
 | **Firm** | `/firm` | Accountants (`role: accountant`) | Tenant = `AccountingFirm` |
 | **Superadmin** | `/admin` | Platform staff (`role: superadmin`) | None (global) |
 
@@ -31,7 +32,7 @@ Sources: `settlo-specs/` (business spec, backlog, tax engine v2.0, prisma schema
 **Identity & tenancy**: `users` (role, status, language, phone) · `business_entities` (owner, name, type=sole_prop, UID, address, banking defaults: IBAN, payment terms, currency, invoice language + prefix, logo) · `tax_profiles` (1:1 entity: canton, commune, marital status → tariff A/B/H, children, residence permit incl. B-permit stop, pillar 3a + has_pillar2, kirchensteuer, birth year, VAT status [not_registered / registered_voluntary / registered_mandatory / exempt], employment income fields, estimated annual revenue) · `accounting_firms` · `accounting_firm_members` · `accountant_assignments` (firm ↔ business grant, optional named accountant, revocable) · `firm_client_invitations` (token-based email invite → owner registers, business auto-assigned).
 
 **Billing (packages)**: `plans` (code solo/pro/confidence, CHF 19/49/99, features JSON, human_answers_quota 0/1/3, trial_days 14, active, sort) · `subscriptions` (user, plan, status: trialing→active→past_due→cancelled→expired, trial dates, period dates, cancel_at_period_end, quota used/reset, gateway + gateway refs nullable for Stripe later) · `subscription_payments` (dummy ledger: amount, status, paid_at, reference).
-- `PaymentGateway` contract + `DummyGateway` (instant success; monthly renewal command writes ledger rows). Stripe drops in later behind the same contract.
+- `PaymentGateway` contract + `DummyGateway` (instant success; monthly renewal command writes ledger rows). Since Sept 2026: `StripeGateway` (Cashier 16, per-workspace subscriptions, discount tiers); the dummy gateway is allowed in local/testing only. See `latest_requirements/IMPLEMENTATION_PLAN.md` Phase E.
 - Gating: `PlanFeature` enum (tax_engine, accountant_access, year_end_export, vat_form_300, annual_review, priority_response) checked via policies/middleware + Filament visibility. **Gates enforced**; plan features editable live in superadmin. Trial = full Pro features regardless of chosen plan (per spec). Trial expiry → `expired` read-only lock + upgrade modal. Quotas: calendar-month reset, no rollover.
 
 **Invoicing**: `clients` · `invoices` (number `INV-YYYY-NNNN` unique per entity, status draft/sent/paid/overdue/cancelled, language, dates, totals, QR fields incl. 27-digit QR reference, internal + client notes) · `invoice_line_items` (qty supports "3h", unit price, VAT rate 0/2.6/3.8/8.1, live totals) · `invoice_payments` (manual mark-paid records).
@@ -114,4 +115,4 @@ Event-driven: queued recalc job on invoice send/status change, expense confirm, 
 | 9 | Onboarding wizard, settings, polish, full test pass, pint |
 
 ## 8. Deferred (v2)
-Stripe (replaces DummyGateway), invoice email delivery + reminders, recurring invoices, bank sync/CSV import, VAT Form 300, year-end export, annual return review workflow, real OCR at scale, pgvector KB retrieval, multi-entity UI switching, GmbH/AG, app localization DE/FR/IT, native mobile, communal precision per municipality, Quellensteuer calculation.
+invoice email delivery + reminders, recurring invoices, bank sync/CSV import, VAT Form 300, year-end export, annual return review workflow, real OCR at scale, pgvector KB retrieval, GmbH/AG, app localization DE/FR/IT, native mobile, communal precision per municipality, Quellensteuer calculation.
