@@ -12,13 +12,22 @@
 
 Log in at the panel URL for the role. All three accounts are demo fixtures with their email already verified.
 
-| Role | Where | Email | Password |
-|---|---|---|---|
-| **Business owner** (Anna Müller) | https://settlo-one.vercel.app/app | `anna@test.ch` | `Q2V3{kcnpje[[:tA&]tS/U^a` |
-| **Accountant** (Maria Schneider, Müller Treuhand AG) | https://settlo-one.vercel.app/firm | `maria@test.ch` | `bePts3q;Bo!qS{3DT0SE\fB0` |
-| **Platform admin** | https://settlo-one.vercel.app/admin | `admin@settlo.ch` | `QZPEujt0ZqKBc1vRT(f6<K}(` |
+**Business owner — Anna Müller**
+- Sign in: https://settlo-one.vercel.app/app
+- Email: `anna@test.ch`
+- Password: `OWNER_PASSWORD`
 
-Copy the passwords exactly — they contain punctuation, and a trailing space is easy to catch by accident.
+**Accountant — Maria Schneider, Müller Treuhand AG**
+- Sign in: https://settlo-one.vercel.app/firm
+- Email: `maria@test.ch`
+- Password: `ACCOUNTANT_PASSWORD`
+
+**Platform admin**
+- Sign in: https://settlo-one.vercel.app/admin
+- Email: `admin@settlo.ch`
+- Password: `ADMIN_PASSWORD`
+
+The passwords are letters and digits only, so they survive copying out of this document.
 
 Use **`https://settlo-one.vercel.app`** and nothing else: build-specific addresses (`settlo-<hash>-dmi92.vercel.app`) sit behind a Vercel login and freeze to a single build, so testers on those would be locked out or testing old code.
 

@@ -45,8 +45,15 @@ use Illuminate\Support\Str;
  */
 class DemoSeeder extends Seeder
 {
-    /** Length of the generated password used outside local/testing. */
-    private const int GENERATED_PASSWORD_LENGTH = 24;
+    /**
+     * Length of the generated password used outside local/testing.
+     *
+     * Letters and digits only: these are handed to testers in a document and
+     * retyped or copied from a PDF, where punctuation invites transcription
+     * errors and breaks on a copy that drops a character. Twenty alphanumeric
+     * characters still carry far more entropy than a demo account needs.
+     */
+    private const int GENERATED_PASSWORD_LENGTH = 20;
 
     /**
      * The demo credentials created by this run, keyed by email.
@@ -283,7 +290,7 @@ class DemoSeeder extends Seeder
             return Hash::make((string) config('settlo.demo.local_password', 'password'));
         }
 
-        $password = Str::password(self::GENERATED_PASSWORD_LENGTH);
+        $password = Str::password(self::GENERATED_PASSWORD_LENGTH, symbols: false);
         $this->credentials[$email] = $password;
 
         return Hash::make($password);
