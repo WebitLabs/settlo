@@ -1,5 +1,6 @@
 <?php
 
+use App\Providers\AppServiceProvider;
 use App\Services\Extraction\ExtractionException;
 use App\Services\Extraction\FakeExtractor;
 use App\Services\Extraction\GeminiExtractor;
@@ -24,8 +25,38 @@ it('the fake extractor returns a deterministic result', function () {
 
     expect($result->vendorName)->toBe('SBB CFF FFS')
         ->and($result->totalAmount)->toBe(87.50)
-        ->and($result->vatRate)->toBe(8.1)
-        ->and($result->confidence)->toBeGreaterThan(0.9);
+        ->and($result->vatRate)->toBe(8.1);
+});
+
+it('the fake extractor marks its output so it cannot be mistaken for a real scan', function () {
+    $result = (new FakeExtractor)->extract('fake-image-bytes', 'image/png');
+
+    expect($result->confidence)->toBe(0.0)
+        ->and($result->meta['model'])->toBe('fake')
+        ->and($result->description)->toContain('simulated extraction')
+        // Persisted verbatim as the expense's ocr_raw_data.
+        ->and($result->toArray()['model_used'])->toBe('fake')
+        ->and($result->toArray()['simulated'])->toBeTrue();
+});
+
+it('the gemini extractor records the real model name and is never marked simulated', function () {
+    Http::fake([
+        '*' => Http::response([
+            'candidates' => [['content' => ['parts' => [['text' => json_encode(['confidence' => 0.5])]]]]],
+        ], 200),
+    ]);
+
+    $extractor = new GeminiExtractor(app(HttpFactory::class), 'k', 'gemini-2.0-flash', 'https://example.test/v1beta');
+
+    expect($extractor->extract('bytes', 'image/png')->toArray())
+        ->toMatchArray(['model_used' => 'gemini-2.0-flash', 'simulated' => false]);
+});
+
+it('refuses the simulated extractor outside local and testing', function () {
+    expect(fn () => AppServiceProvider::requireLocalAiFallback('production'))
+        ->toThrow(RuntimeException::class, 'GEMINI_API_KEY is required');
+
+    expect(AppServiceProvider::requireLocalAiFallback('local'))->toBeNull();
 });
 
 it('the gemini extractor parses a structured response', function () {
@@ -129,6 +160,31 @@ it('the gemini extractor throws on a provider error status', function () {
         ->toThrow(ExtractionException::class);
 });
 
-it('the gemini extraction timeout is configurable and defaults to 60 seconds', function () {
-    expect((int) config('services.gemini.extract_timeout'))->toBe(60);
+it('the gemini extraction timeouts fit a 60 second serverless budget', function () {
+    // Asserted against the config file's own defaults: a developer .env must
+    // not decide whether the shipped default fits the function budget.
+    $keys = ['GEMINI_EXTRACT_TIMEOUT', 'GEMINI_EXTRACT_CONNECT_TIMEOUT', 'GEMINI_EXTRACT_ATTEMPTS'];
+    $saved = [];
+
+    foreach ($keys as $key) {
+        $saved[$key] = $_SERVER[$key] ?? $_ENV[$key] ?? null;
+        unset($_ENV[$key], $_SERVER[$key]);
+        putenv($key);
+    }
+
+    try {
+        $gemini = (require config_path('services.php'))['gemini'];
+    } finally {
+        foreach (array_filter($saved, fn ($value): bool => $value !== null) as $key => $value) {
+            $_ENV[$key] = $_SERVER[$key] = $value;
+            putenv("{$key}={$value}");
+        }
+    }
+
+    expect($gemini['extract_timeout'])->toBe(15)
+        ->and($gemini['extract_connect_timeout'])->toBe(5)
+        ->and($gemini['extract_attempts'])->toBe(2)
+        // Worst case, including the 0.5s pause between attempts.
+        ->and($gemini['extract_attempts'] * ($gemini['extract_connect_timeout'] + $gemini['extract_timeout']) + 1)
+        ->toBeLessThan(60);
 });

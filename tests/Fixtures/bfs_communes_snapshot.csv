@@ -1,0 +1,6 @@
+﻿HistoricalCode,BfsCode,ValidFrom,ValidTo,Level,Parent,Name,ShortName,Inscription,Radiation,Rec_Type_fr,Rec_Type_de
+19,19,12.09.1848,,1,,Aargau,AG,,,,
+10026,1901,12.09.1848,,2,19,Bezirk Aarau,Aarau,100,,,
+15385,4001,01.01.2010,,3,10026,Aarau,Aarau,3167,,,
+10027,4002,12.09.1848,,3,10026,Biberstein,Biberstein,,,,
+19,4003,12.09.1848,,3,10026,"Buchs (AG)","Buchs (AG)",,,,

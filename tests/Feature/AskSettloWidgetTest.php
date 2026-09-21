@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\SubscriptionStatus;
-use App\Filament\App\Widgets\AskSettloPreview;
+use App\Filament\Workspace\Widgets\AskSettloPreview;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\BusinessEntity;
@@ -18,13 +18,13 @@ beforeEach(function () {
     $this->entity = BusinessEntity::factory()->forCanton('ZH')->for($this->owner, 'owner')->create();
 
     $plan = Plan::where('code', 'pro')->firstOrFail();
-    Subscription::factory()->for($this->owner, 'user')->create([
+    Subscription::factory()->forEntity($this->entity)->create([
         'plan_id' => $plan->getKey(),
         'status' => SubscriptionStatus::Active,
     ]);
 
     $this->actingAs($this->owner);
-    Filament::setCurrentPanel(Filament::getPanel('app'));
+    Filament::setCurrentPanel(Filament::getPanel('workspace'));
     Filament::setTenant($this->entity);
 });
 

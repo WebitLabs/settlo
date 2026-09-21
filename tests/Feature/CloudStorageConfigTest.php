@@ -11,6 +11,17 @@
  */
 function loadFilesystemsConfigWithEnv(array $env): array
 {
+    return loadConfigFileWithEnv('filesystems.php', $env);
+}
+
+/**
+ * Evaluates any config file with the given env vars set, then restores the env.
+ *
+ * @param  array<string, string>  $env
+ * @return array<string, mixed>
+ */
+function loadConfigFileWithEnv(string $file, array $env): array
+{
     foreach ($env as $key => $value) {
         $_ENV[$key] = $value;
         $_SERVER[$key] = $value;
@@ -18,7 +29,7 @@ function loadFilesystemsConfigWithEnv(array $env): array
     }
 
     try {
-        return require config_path('filesystems.php');
+        return require config_path($file);
     } finally {
         foreach (array_keys($env) as $key) {
             unset($_ENV[$key], $_SERVER[$key]);
@@ -90,3 +101,12 @@ it('switches the public disk to a cdn-fronted spaces bucket when PUBLIC_DISK_DRI
 it('leaves the livewire temporary upload disk on the app default unless overridden', function () {
     expect(config('livewire.temporary_file_upload.disk'))->toBeNull();
 });
+
+it('treats an empty LIVEWIRE_TMP_DISK as the app default', function (array $env, ?string $expected) {
+    $config = loadConfigFileWithEnv('livewire.php', $env);
+
+    expect($config['temporary_file_upload']['disk'])->toBe($expected);
+})->with([
+    'empty string' => [['LIVEWIRE_TMP_DISK' => ''], null],
+    'explicit disk' => [['LIVEWIRE_TMP_DISK' => 'receipts'], 'receipts'],
+]);

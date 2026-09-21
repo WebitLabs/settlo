@@ -3,8 +3,10 @@
 use App\Enums\InvoiceStatus;
 use App\Jobs\RecalculateTaxEstimation;
 use App\Models\BusinessEntity;
+use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceLineItem;
+use App\Services\Invoicing\InvoiceCreditor;
 use App\Services\Invoicing\InvoicePdfService;
 use App\Services\Invoicing\InvoiceService;
 use Database\Seeders\ReferenceDataSeeder;
@@ -18,6 +20,28 @@ beforeEach(function () {
     // tests) can resolve rates end-to-end.
     $this->seed(ReferenceDataSeeder::class);
 });
+
+/**
+ * The invoice PDF as HTML, through the same data contract InvoicePdfService
+ * uses: an issued invoice renders its frozen creditor snapshot, a draft the
+ * live business.
+ */
+function invoicePdfHtml(Invoice $invoice): string
+{
+    $invoice->loadMissing(['businessEntity', 'client', 'lineItems']);
+    $creditor = InvoiceCreditor::for($invoice);
+
+    return view('invoices.pdf', [
+        'invoice' => $invoice,
+        'creditor' => $creditor,
+        'isDraft' => $invoice->status === InvoiceStatus::Draft,
+        'logo' => null,
+        'vatRegistered' => $creditor->vatRegistered,
+        'client' => $invoice->client,
+        'vatBreakdown' => app(InvoiceService::class)->vatBreakdown($invoice),
+        'paymentPart' => null,
+    ])->render();
+}
 
 it('computes subtotal, VAT and total with BCMath from line items', function () {
     $invoice = Invoice::factory()->draft()->create();
@@ -60,7 +84,7 @@ it('assigns sequential per-entity invoice numbers under contention', function ()
 
 it('freezes the creditor snapshot and mints a 27-digit QRR when sending', function () {
     Queue::fake();
-    $entity = BusinessEntity::factory()->forCanton('ZH')->create(['iban' => QR_IBAN]);
+    $entity = BusinessEntity::factory()->forCanton('ZH')->vatRegistered()->create(['iban' => QR_IBAN]);
     $invoice = Invoice::factory()->draft()->for($entity, 'businessEntity')->create(['invoice_number' => 'INV-2026-0007']);
     InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 1000, 'vat_rate' => 8.1]);
 
@@ -82,7 +106,7 @@ it('refuses to send an invoice with no billable lines', function () {
 });
 
 it('refuses to send an invoice twice', function () {
-    $entity = BusinessEntity::factory()->create(['iban' => QR_IBAN]);
+    $entity = BusinessEntity::factory()->vatRegistered()->create(['iban' => QR_IBAN]);
     $invoice = Invoice::factory()->draft()->for($entity, 'businessEntity')->create(['invoice_number' => 'INV-2026-0008']);
     InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 100, 'vat_rate' => 8.1]);
     $service = app(InvoiceService::class);
@@ -112,7 +136,7 @@ it('flips only past-due sent invoices to overdue', function () {
 });
 
 it('localizes the static PDF labels to the invoice language', function () {
-    $entity = BusinessEntity::factory()->create(['iban' => QR_IBAN]);
+    $entity = BusinessEntity::factory()->vatRegistered()->create(['iban' => QR_IBAN]);
     $invoice = Invoice::factory()->draft()->for($entity, 'businessEntity')->create([
         'invoice_number' => 'INV-2026-0010',
         'language' => 'de',
@@ -124,13 +148,7 @@ it('localizes the static PDF labels to the invoice language', function () {
         app()->setLocale($invoice->language);
 
         try {
-            return view('invoices.pdf', [
-                'invoice' => $invoice->loadMissing('lineItems'),
-                'entity' => $invoice->businessEntity,
-                'client' => $invoice->client,
-                'vatBreakdown' => app(InvoiceService::class)->vatBreakdown($invoice),
-                'paymentPart' => null,
-            ])->render();
+            return invoicePdfHtml($invoice);
         } finally {
             app()->setLocale($previous);
         }
@@ -146,7 +164,7 @@ it('localizes the static PDF labels to the invoice language', function () {
 });
 
 it('renders a valid PDF document for a sent invoice', function () {
-    $entity = BusinessEntity::factory()->create(['iban' => QR_IBAN]);
+    $entity = BusinessEntity::factory()->vatRegistered()->create(['iban' => QR_IBAN]);
     $invoice = Invoice::factory()->draft()->for($entity, 'businessEntity')->create(['invoice_number' => 'INV-2026-0009']);
     InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 1000, 'vat_rate' => 8.1]);
     app(InvoiceService::class)->send($invoice->refresh());
@@ -154,4 +172,88 @@ it('renders a valid PDF document for a sent invoice', function () {
     $output = app(InvoicePdfService::class)->render($invoice->refresh())->output();
 
     expect(substr($output, 0, 4))->toBe('%PDF');
+});
+
+it('refuses to send a draft with VAT when the business is not VAT-registered', function () {
+    $entity = BusinessEntity::factory()->create(['iban' => QR_IBAN]);
+    $invoice = Invoice::factory()->draft()->for($entity, 'businessEntity')->create(['invoice_number' => 'INV-2026-0011']);
+    InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 100, 'vat_rate' => 8.1]);
+
+    expect(fn () => app(InvoiceService::class)->send($invoice->refresh()))
+        ->toThrow(RuntimeException::class, 'not VAT-registered');
+
+    expect($invoice->refresh()->status)->toBe(InvoiceStatus::Draft);
+});
+
+it('prints "Not subject to VAT" and no VAT column for a business that is not VAT-registered', function () {
+    $entity = BusinessEntity::factory()->create(['iban' => QR_IBAN]);
+    $invoice = Invoice::factory()->draft()->for($entity, 'businessEntity')->create(['invoice_number' => 'INV-2026-0012']);
+    InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 100, 'vat_rate' => 0]);
+    app(InvoiceService::class)->recalculateTotals($invoice);
+
+    $html = invoicePdfHtml($invoice->refresh());
+
+    expect($html)->toContain('Not subject to VAT')
+        ->not->toContain('VAT %');
+
+    expect(substr(app(InvoicePdfService::class)->render($invoice)->output(), 0, 4))->toBe('%PDF');
+});
+
+it('uses the registered business name as creditor and prints the trading name on the PDF', function () {
+    Queue::fake();
+    $entity = BusinessEntity::factory()->forCanton('ZH')->vatRegistered()->create([
+        'iban' => QR_IBAN,
+        'name' => 'Anna Muster',
+        'legal_name' => 'Muster Design Studio',
+    ]);
+    $invoice = Invoice::factory()->draft()->for($entity, 'businessEntity')->create(['invoice_number' => 'INV-2026-0013']);
+    InvoiceLineItem::factory()->for($invoice)->create(['quantity' => 1, 'unit_price' => 100, 'vat_rate' => 8.1]);
+
+    app(InvoiceService::class)->send($invoice->refresh());
+
+    expect($invoice->refresh()->creditor_name)->toBe('Anna Muster');
+
+    $html = invoicePdfHtml($invoice);
+
+    expect($html)->toContain('Anna Muster')
+        ->toContain('Trading as Muster Design Studio')
+        ->toContain('VAT %');
+});
+
+it('keeps the number lock until the insert and survives a duplicate number', function () {
+    $entity = BusinessEntity::factory()->create();
+    $client = Client::factory()->for($entity, 'businessEntity')->create();
+    $service = app(InvoiceService::class);
+
+    $first = $service->createDraft($entity, ['client_id' => $client->getKey(), 'issue_date' => '2026-03-01', 'due_date' => '2026-03-31']);
+    $second = $service->createDraft($entity, ['client_id' => $client->getKey(), 'issue_date' => '2026-03-02', 'due_date' => '2026-04-01']);
+
+    expect($first->invoice_number)->toBe('INV-2026-0001')
+        ->and($second->invoice_number)->toBe('INV-2026-0002')
+        ->and($second->status)->toBe(InvoiceStatus::Draft)
+        ->and($second->business_entity_id)->toBe($entity->getKey());
+
+    // A concurrent create that already took the next number: the unique
+    // violation is retried instead of surfacing as a 500.
+    Invoice::factory()->for($entity, 'businessEntity')->create(['invoice_number' => 'INV-2026-0003']);
+    Invoice::factory()->for($entity, 'businessEntity')->create(['invoice_number' => 'INV-2026-0004'])->delete();
+
+    $third = $service->createDraft($entity, ['client_id' => $client->getKey(), 'issue_date' => '2026-03-03', 'due_date' => '2026-04-02']);
+
+    expect($third->invoice_number)->toBe('INV-2026-0005');
+});
+
+it('treats an invoice due today as not yet overdue', function () {
+    $dueToday = Invoice::factory()->create(['status' => InvoiceStatus::Sent, 'due_date' => now()->toDateString()]);
+    $duePast = Invoice::factory()->create(['status' => InvoiceStatus::Sent, 'due_date' => now()->subDay()->toDateString()]);
+
+    expect($dueToday->isOverdue())->toBeFalse()
+        ->and($duePast->isOverdue())->toBeTrue()
+        ->and(Invoice::query()->overdue()->pluck('id')->all())->toBe([$duePast->getKey()]);
+
+    expect(app(InvoiceService::class)->markOverdue())->toBe(1);
+    expect($dueToday->refresh()->status)->toBe(InvoiceStatus::Sent)
+        ->and($duePast->refresh()->status)->toBe(InvoiceStatus::Overdue)
+        // An invoice already flagged overdue still reports as overdue.
+        ->and($duePast->isOverdue())->toBeTrue();
 });

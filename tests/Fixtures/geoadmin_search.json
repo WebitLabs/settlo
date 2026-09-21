@@ -1,0 +1,38 @@
+{
+  "results": [
+    {
+      "id": 2873011,
+      "weight": 7,
+      "attrs": {
+        "origin": "address",
+        "label": "Dammstrasse 1 <b>8037 Zürich</b>",
+        "detail": "dammstrasse 1 8037 zuerich 261 zuerich ch zh",
+        "featureId": "167002_0",
+        "lat": 47.39091110229492,
+        "lon": 8.528008460998535
+      }
+    },
+    {
+      "id": 2676680,
+      "weight": 7,
+      "attrs": {
+        "origin": "address",
+        "label": "Bahnhofstrasse 10 <b>5000 Aarau</b>",
+        "detail": "bahnhofstrasse 10 5000 aarau 4001 aarau ch ag",
+        "featureId": "522931_0",
+        "lat": 47.39061737060547,
+        "lon": 8.046172142028809
+      }
+    },
+    {
+      "id": 3092338,
+      "weight": 1551,
+      "attrs": {
+        "origin": "address",
+        "label": "Rue du Rhône 12a <b>1204 Genève</b>",
+        "detail": "rue du rhone 12a 1204 geneve 6621 geneve ch ge",
+        "featureId": "2037304_6"
+      }
+    }
+  ]
+}

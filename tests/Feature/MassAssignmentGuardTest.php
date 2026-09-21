@@ -4,6 +4,8 @@ use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Models\BusinessEntity;
 use App\Models\Invoice;
+use App\Models\TaxEstimation;
+use App\Models\TaxProfile;
 use App\Models\User;
 
 /**
@@ -45,4 +47,14 @@ it('defaults a new user to the least-privileged role and unverified status', fun
 
     expect($user->role)->toBe(UserRole::Owner)
         ->and($user->status)->toBe(UserStatus::PendingVerification);
+});
+
+it('keeps ownership and verification columns of the person out of the fillable set', function () {
+    $userFillable = (new User)->getFillable();
+
+    expect((new TaxProfile)->getFillable())->not->toContain('user_id')
+        ->and((new TaxEstimation)->isFillable('user_id'))->toBeTrue()
+        ->and($userFillable)->not->toContain('phone_verified_at')
+        ->and($userFillable)->not->toContain('terms_accepted_at')
+        ->and($userFillable)->not->toContain('last_business_entity_id');
 });

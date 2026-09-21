@@ -1,0 +1,6 @@
+﻿Ortschaftsname;PLZ4;Zusatzziffer;ZIP_ID;Gemeindename;BFS-Nr;Kantonskürzel;Adressenanteil;E;N;Sprache;Validity
+Aarau;5000;00;2913;Aarau;4001;AG;99.695 %;8.048;47.389;de;2008-07-01
+Aarau;5000;00;2913;Suhr;4012;AG;0.305 %;8.059;47.383;de;2008-07-01
+Zürich;8001;00;4385;Zürich;261;ZH;100 %;8.542;47.372;de;2008-07-01
+Zürich;8001;01;4386;Zürich;261;ZH;40 %;8.542;47.372;de;2008-07-01
+Nendeln;9485;00;5389;Eschen;7007;;99.054 %;9.543;47.197;de;2008-07-01

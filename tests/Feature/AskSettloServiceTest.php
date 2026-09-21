@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\MaritalStatus;
-use App\Enums\VatStatus;
 use App\Models\BusinessEntity;
 use App\Models\TaxProfile;
 use App\Models\User;
@@ -12,6 +11,7 @@ use Database\Seeders\CantonSeeder;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
     $this->seed(CantonSeeder::class);
@@ -31,9 +31,8 @@ function makeOwnerWithBusiness(): array
         ->forCanton('ZH')
         ->create(['name' => 'Anna Müller Consulting']);
 
-    TaxProfile::factory()->for($entity)->create([
+    TaxProfile::factory()->for($user)->create([
         'canton_id' => $entity->canton_id,
-        'vat_status' => VatStatus::NotRegistered,
         'marital_status' => MaritalStatus::Single,
         'number_of_children' => 2,
         'pillar3a_amount' => 7056,
@@ -117,8 +116,9 @@ it('calls the Gemini generateContent endpoint with the api key header, system in
         return $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
             && $request->hasHeader('x-goog-api-key', 'gk-test-key')
             && ! str_contains($request->url(), 'gk-test-key')
-            && $request['system_instruction']['parts'][0]['text'] === 'You are Settlo AI.'
-            && $request['generationConfig']['maxOutputTokens'] === 1024
+            && str_starts_with($request['system_instruction']['parts'][0]['text'], 'You are Settlo AI.')
+            && $request['generationConfig']['maxOutputTokens'] === 8192
+            && $request['generationConfig']['thinkingConfig']['thinkingLevel'] === 'low'
             && count($request['contents']) === 3
             && $request['contents'][0] === ['role' => 'user', 'parts' => [['text' => 'Do I need VAT?']]]
             && $request['contents'][1] === ['role' => 'model', 'parts' => [['text' => 'It depends on your turnover.']]]
@@ -159,4 +159,90 @@ it('denies another owner from viewing a conversation they do not own', function 
 
     expect($intruder->can('view', $conversation))->toBeFalse()
         ->and($user->can('view', $conversation))->toBeTrue();
+});
+
+function fakeGeminiResponder(): GeminiChatResponder
+{
+    return new GeminiChatResponder(
+        app(HttpFactory::class),
+        'gk-test-key',
+        'gemini-2.0-flash',
+        'https://generativelanguage.googleapis.com/v1beta',
+    );
+}
+
+it('marks a reply that hit the output token limit as shortened and logs a warning', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'You need to register once your turnover']]],
+                'finishReason' => 'MAX_TOKENS',
+            ]],
+            'usageMetadata' => ['totalTokenCount' => 1100, 'thoughtsTokenCount' => 982, 'candidatesTokenCount' => 38],
+        ]),
+    ]);
+
+    Log::shouldReceive('warning')
+        ->once()
+        ->with('Ask Settlo reply hit the output token limit.', ['thoughts' => 982, 'visible' => 38]);
+
+    $reply = fakeGeminiResponder()->respond([['role' => 'user', 'content' => 'Do I need VAT?']], 'You are Settlo AI.');
+
+    expect($reply->content)
+        ->toStartWith('You need to register once your turnover')
+        ->toEndWith("\n\n(This answer was shortened. Ask me to continue for the rest.)")
+        ->not->toContain('_(');
+});
+
+it('tells Gemini to answer in plain text without markdown (L5)', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [['content' => ['parts' => [['text' => 'Hello']]], 'finishReason' => 'STOP']],
+            'usageMetadata' => ['totalTokenCount' => 10],
+        ]),
+    ]);
+
+    fakeGeminiResponder()->respond([['role' => 'user', 'content' => 'Hi']], 'You are Settlo AI.');
+
+    Http::assertSent(function (Request $request): bool {
+        $instruction = (string) data_get($request->data(), 'system_instruction.parts.0.text');
+
+        return str_starts_with($instruction, 'You are Settlo AI.')
+            && str_contains($instruction, 'Do not use markdown')
+            && str_contains($instruction, 'start each line with "- "');
+    });
+});
+
+it('throws an AiException when the provider blocks the answer', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => []],
+                'finishReason' => 'SAFETY',
+            ]],
+        ]),
+    ]);
+
+    fakeGeminiResponder()->respond([['role' => 'user', 'content' => 'Hi']], 'You are Settlo AI.');
+})->throws(AiException::class, 'The assistant could not answer this question.');
+
+it('omits the thinking config when no thinking level is configured', function () {
+    config(['services.gemini.chat_thinking_level' => null]);
+
+    Http::preventStrayRequests();
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'Hello.']]],
+                'finishReason' => 'STOP',
+            ]],
+        ]),
+    ]);
+
+    fakeGeminiResponder()->respond([['role' => 'user', 'content' => 'Hi']], 'You are Settlo AI.');
+
+    Http::assertSent(fn (Request $request): bool => $request['generationConfig'] === ['maxOutputTokens' => 8192]);
 });

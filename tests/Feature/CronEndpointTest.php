@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Canton;
+use Illuminate\Support\Facades\Artisan;
+
 it('runs a whitelisted command with a valid bearer token', function () {
     config(['cron.secret' => 'test-secret']);
 
@@ -50,4 +53,36 @@ it('returns not found for a command outside the whitelist', function () {
     $this->withHeader('Authorization', 'Bearer test-secret')
         ->getJson('/cron/horizon-snapshot')
         ->assertNotFound();
+});
+
+it('exposes the queue drain so a deploy without a worker still runs queued jobs', function () {
+    config(['cron.secret' => 'test-secret']);
+
+    $this->getJson('/cron/drain-queue?token=test-secret')
+        ->assertSuccessful()
+        ->assertJson(['command' => 'settlo:drain-queue', 'exit_code' => 0]);
+});
+
+it('exposes the deploy step so reference data can be seeded without a shell', function () {
+    config(['cron.secret' => 'test-secret']);
+
+    $this->getJson('/cron/deploy?token=test-secret')
+        ->assertSuccessful()
+        ->assertJson(['command' => 'settlo:deploy', 'exit_code' => 0]);
+
+    expect(Canton::count())->toBe(26);
+});
+
+it('answers with a server error when the command itself fails', function () {
+    config(['cron.secret' => 'test-secret']);
+
+    // A failing command must not look like a healthy ping to the scheduler.
+    Artisan::shouldReceive('call')
+        ->once()
+        ->with('settlo:expire-trials')
+        ->andReturn(1);
+
+    $this->getJson('/cron/expire-trials?token=test-secret')
+        ->assertStatus(500)
+        ->assertJson(['exit_code' => 1]);
 });

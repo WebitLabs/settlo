@@ -3,7 +3,6 @@
 use App\Billing\QuotaExceededException;
 use App\Enums\AiEscalationStatus;
 use App\Enums\MaritalStatus;
-use App\Enums\VatStatus;
 use App\Events\AiEscalationUpdated;
 use App\Jobs\SimulateAccountantAnswer;
 use App\Models\AccountantAssignment;
@@ -16,6 +15,7 @@ use App\Models\TaxProfile;
 use App\Models\User;
 use App\Services\Ai\AskSettloService;
 use App\Services\Ai\EscalationService;
+use App\Services\Audit\AuditLogger;
 use App\Services\Billing\SubscriptionService;
 use Database\Seeders\CantonSeeder;
 use Database\Seeders\PlanSeeder;
@@ -42,15 +42,14 @@ function ownerWithPlan(string $planCode, int $quota): array
         ->forCanton('ZH')
         ->create();
 
-    TaxProfile::factory()->for($entity)->create([
+    TaxProfile::factory()->for($user)->create([
         'canton_id' => $entity->canton_id,
-        'vat_status' => VatStatus::NotRegistered,
         'marital_status' => MaritalStatus::Single,
         'number_of_children' => 0,
         'pillar3a_amount' => 7056,
     ]);
 
-    Subscription::factory()->for($user)->onPlan($planCode, $quota)->active()->create([
+    Subscription::factory()->forEntity($entity)->onPlan($planCode, $quota)->active()->create([
         'human_answers_quota' => $quota,
         'human_answers_used' => 0,
     ]);
@@ -80,7 +79,7 @@ it('escalates a Pro answer: pending record, quota consumed, event + queued simul
         ->and($escalation->user_question)->toBe('Do I need to register for VAT?')
         ->and($escalation->ai_answer)->toBe($answer->content)
         ->and($escalation->sla_deadline)->not->toBeNull()
-        ->and($user->subscription->refresh()->human_answers_used)->toBe(1);
+        ->and($entity->subscription->refresh()->human_answers_used)->toBe(1);
 
     Event::assertDispatched(AiEscalationUpdated::class, function (AiEscalationUpdated $event) use ($entity, $escalation) {
         return $event->businessEntityId === $entity->getKey()
@@ -135,22 +134,24 @@ it('rolls back the human-answer credit when a concurrent request wins the escala
             ]);
         });
 
-    $service = new EscalationService($subscriptions);
+    $service = new EscalationService($subscriptions, app(AuditLogger::class));
 
     expect(fn () => $service->escalate($answer, $user))
         ->toThrow(QueryException::class);
 
-    expect($user->subscription->refresh()->human_answers_used)->toBe(0);
+    expect($entity->subscription->refresh()->human_answers_used)->toBe(0);
 });
 
-it('denies escalation to a Solo owner without accountant access', function () {
+it('denies escalation to a Solo owner without accountant access when feature gates are enforced', function () {
+    config(['settlo.enforce_feature_gates' => true]);
+
     [$user, $entity] = ownerWithPlan('solo', 0);
     $answer = assistantAnswer($user, $entity);
 
     expect(fn () => app(EscalationService::class)->escalate($answer, $user))
         ->toThrow(AuthorizationException::class);
 
-    expect($user->subscription->refresh()->human_answers_used)->toBe(0);
+    expect($entity->subscription->refresh()->human_answers_used)->toBe(0);
 });
 
 it('runs the simulated answer job: answered status, timestamp, owner notification, broadcast', function () {
@@ -246,13 +247,17 @@ it('enforces the escalation policy across tenants and roles', function () {
         ->and($intruder->can('view', $escalation))->toBeFalse()
         ->and($intruder->can('resolve', $escalation))->toBeFalse()
         ->and($assignedAccountant->can('answer', $escalation))->toBeTrue()
-        ->and($assignedAccountant->can('view', $escalation))->toBeFalse()
-        ->and($strangerAccountant->can('answer', $escalation))->toBeFalse();
+        // An accountant who may answer must also be able to read the thread:
+        // the detail page is the only place the AI answer they are asked to
+        // verify is shown.
+        ->and($assignedAccountant->can('view', $escalation))->toBeTrue()
+        ->and($strangerAccountant->can('answer', $escalation))->toBeFalse()
+        ->and($strangerAccountant->can('view', $escalation))->toBeFalse();
 });
 
 it('restores human-answer availability after a quota reset', function () {
-    [$user] = ownerWithPlan('pro', 1);
-    $subscription = $user->subscription;
+    [, $entity] = ownerWithPlan('pro', 1);
+    $subscription = $entity->subscription;
     $service = app(SubscriptionService::class);
 
     $service->consumeHumanAnswer($subscription);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Canton;
+use App\Models\Commune;
 use App\Models\ExpenseCategory;
 use App\Models\FederalTaxBracket;
 use App\Models\Plan;
@@ -35,7 +36,7 @@ it('builds the Anna Müller demo with canonical figures', function () {
         ->and($entity->canton->code)->toBe('ZH')
         ->and((float) $entity->invoices()->countsAsRevenue()->sum('total'))->toBe(68400.0)
         ->and((float) $entity->expenses()->where('status', 'reviewed')->sum('deductible_amount'))->toBe(14200.0)
-        ->and($anna->subscription->plan->code)->toBe('pro');
+        ->and($anna->workspaceSubscriptions()->firstOrFail()->plan->code)->toBe('pro');
 });
 
 it('grants the demo firm an active assignment to Anna', function () {
@@ -47,4 +48,30 @@ it('grants the demo firm an active assignment to Anna', function () {
 
     expect($firm->name)->toBe('Müller Treuhand AG')
         ->and($firm->activeAssignments()->count())->toBe(1);
+});
+
+it('seeds every Swiss commune with the known multipliers intact', function () {
+    $this->seed(ReferenceDataSeeder::class);
+
+    expect(Commune::count())->toBeGreaterThanOrEqual(2100)
+        ->and(Canton::doesntHave('communes')->count())->toBe(0);
+
+    $aarau = Commune::where('bfs_number', '4001')->firstOrFail();
+    expect($aarau->name)->toBe('Aarau')
+        ->and($aarau->canton->code)->toBe('AG')
+        ->and($aarau->multiplier_is_estimated)->toBeTrue()
+        ->and((float) $aarau->tax_multiplier)->toBe((float) $aarau->canton->fiscalConfigForYear(2026)->communal_multiplier_default);
+
+    $known = ['261' => 119.0, '154' => 70.0, '230' => 125.0, '1711' => 138.0, '6621' => 100.0, '2701' => 100.0];
+    foreach ($known as $bfs => $multiplier) {
+        $commune = Commune::where('bfs_number', $bfs)->firstOrFail();
+
+        expect((float) $commune->tax_multiplier)->toBe($multiplier)
+            ->and($commune->multiplier_is_estimated)->toBeFalse();
+    }
+
+    // Seeding again changes nothing.
+    $this->seed(ReferenceDataSeeder::class);
+    expect(Commune::count())->toBe(2110)
+        ->and((float) Commune::where('bfs_number', '154')->value('tax_multiplier'))->toBe(70.0);
 });

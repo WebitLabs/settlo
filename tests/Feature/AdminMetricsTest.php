@@ -59,11 +59,45 @@ it('computes MRR, paying/trial counts and conversion from an active/trial mix', 
 
     $stats = statsByLabel(new MrrOverview);
 
-    // 4 started a trial, 2 now active => 50% conversion.
-    expect($stats['MRR']->getValue())->toBe('CHF 118')
-        ->and($stats['Paying customers']->getValue())->toBe('2')
+    // 4 started a trial, 2 now active => 50% conversion. The gateway is not
+    // Stripe here, so the money labels say so (C5).
+    expect($stats['MRR (simulated)']->getValue())->toBe('CHF 118')
+        ->and($stats['Paying customers (simulated)']->getValue())->toBe('2')
         ->and($stats['Active trials']->getValue())->toBe('2')
         ->and($stats['Trial conversion']->getValue())->toBe('50%');
+});
+
+describe('simulated revenue is never presented as real (C5)', function () {
+    it('labels every money figure as simulated while the gateway is not Stripe', function () {
+        Subscription::factory()->onPlan('solo', 0)->active()->create();
+
+        actAsMetricsSuperadmin();
+
+        expect(array_keys(statsByLabel(new MrrOverview)))
+            ->toContain('MRR (simulated)')
+            ->toContain('Paying customers (simulated)');
+
+        Livewire::test(MrrOverview::class)
+            ->assertOk()
+            ->assertSee('Recurring revenue (simulated)')
+            ->assertSee('no money was collected');
+    });
+
+    it('drops the marker once real payments are taken', function () {
+        config(['settlo.payment_gateway' => 'stripe']);
+
+        Subscription::factory()->onPlan('solo', 0)->active()->create();
+
+        actAsMetricsSuperadmin();
+
+        expect(array_keys(statsByLabel(new MrrOverview)))
+            ->toContain('MRR')
+            ->not->toContain('MRR (simulated)');
+
+        Livewire::test(MrrOverview::class)
+            ->assertOk()
+            ->assertDontSee('Recurring revenue (simulated)');
+    });
 });
 
 it('renders MRR overview with a zero-state on an empty database', function () {
@@ -71,7 +105,7 @@ it('renders MRR overview with a zero-state on an empty database', function () {
 
     $stats = statsByLabel(new MrrOverview);
 
-    expect($stats['MRR']->getValue())->toBe('CHF 0')
+    expect($stats['MRR (simulated)']->getValue())->toBe('CHF 0')
         ->and($stats['Trial conversion']->getValue())->toBe('0%');
 
     Livewire::test(MrrOverview::class)->assertOk();

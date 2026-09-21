@@ -2,8 +2,8 @@
 
 use App\Enums\AiEscalationStatus;
 use App\Enums\MaritalStatus;
-use App\Enums\VatStatus;
-use App\Filament\App\Pages\AskSettlo;
+use App\Enums\UserStatus;
+use App\Filament\Workspace\Pages\AskSettlo;
 use App\Jobs\SimulateAccountantAnswer;
 use App\Models\AiEscalation;
 use App\Models\AiMessage;
@@ -14,6 +14,8 @@ use App\Models\User;
 use App\Services\Ai\AskSettloService;
 use App\Services\Ai\EscalationService;
 use Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\Fluent\AssertableJson;
 
@@ -34,15 +36,14 @@ function askOwner(string $planCode = 'pro', int $quota = 1): array
         ->forCanton('ZH')
         ->create();
 
-    TaxProfile::factory()->for($entity)->create([
+    TaxProfile::factory()->for($user)->create([
         'canton_id' => $entity->canton_id,
-        'vat_status' => VatStatus::NotRegistered,
         'marital_status' => MaritalStatus::Single,
         'number_of_children' => 0,
         'pillar3a_amount' => 7056,
     ]);
 
-    Subscription::factory()->for($user)->onPlan($planCode, $quota)->active()->create([
+    Subscription::factory()->forEntity($entity)->onPlan($planCode, $quota)->active()->create([
         'human_answers_quota' => $quota,
         'human_answers_used' => 0,
     ]);
@@ -64,14 +65,50 @@ it('redirects the legacy chat URL into the panel page', function () {
 
     $this->actingAs($user)
         ->get(route('ask-settlo.index', $entity))
-        ->assertRedirect(AskSettlo::getUrl(['tenant' => $entity], panel: 'app'));
+        ->assertRedirect(AskSettlo::getUrl(['tenant' => $entity], panel: 'workspace'));
+});
+
+it('requires a verified email', function () {
+    [$user, $entity] = askOwner();
+    $user->forceFill(['email_verified_at' => null])->save();
+
+    $this->actingAs($user)
+        ->get(route('ask-settlo.index', $entity))
+        ->assertRedirect(route('filament.app.auth.email-verification.prompt'));
+
+    $this->actingAs($user)
+        ->getJson(route('ask-settlo.bootstrap', $entity))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->postJson(route('ask-settlo.conversations.store', $entity))
+        ->assertForbidden();
+});
+
+it('rejects suspended owners', function () {
+    [$user, $entity] = askOwner();
+    $user->forceFill(['status' => UserStatus::Suspended])->save();
+
+    $this->actingAs($user)
+        ->get(route('ask-settlo.index', $entity))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->getJson(route('ask-settlo.bootstrap', $entity))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->postJson(route('ask-settlo.conversations.store', $entity))
+        ->assertForbidden();
+
+    expect($user->aiConversations()->count())->toBe(0);
 });
 
 it('renders the panel chat page for the owner', function () {
     [$user, $entity] = askOwner();
 
     $this->actingAs($user)
-        ->get(AskSettlo::getUrl(['tenant' => $entity], panel: 'app'))
+        ->get(AskSettlo::getUrl(['tenant' => $entity], panel: 'workspace'))
         ->assertOk()
         ->assertSee('ask-settlo-root');
 });
@@ -189,7 +226,7 @@ it('rejects a concurrent duplicate escalation with 409 without burning a second 
         ->assertStatus(409)
         ->assertJson(['message' => 'This answer has already been escalated.']);
 
-    expect($user->subscription->refresh()->human_answers_used)->toBe(1);
+    expect($entity->subscription->refresh()->human_answers_used)->toBe(1);
 
     $this->assertDatabaseCount('ai_escalations', 1);
 });
@@ -205,6 +242,7 @@ it('escalates an answer and then resolves it', function () {
         ->assertCreated()
         ->assertJson(fn (AssertableJson $json) => $json
             ->where('escalation.status', AiEscalationStatus::Pending->value)
+            ->where('escalation.accountantName', 'Maria Schneider')
             ->where('quota.used', 1)
             ->etc());
 
@@ -247,4 +285,64 @@ it('rejects resolving a still-pending escalation with 409 and leaves the status 
         'id' => $escalationId,
         'status' => AiEscalationStatus::Pending->value,
     ]);
+});
+
+it('shows the answering accountant\'s full name in the bootstrap payload', function () {
+    Queue::fake([SimulateAccountantAnswer::class]);
+
+    [$user, $entity] = askOwner('pro', 1);
+    $answer = askAssistantMessage($user, $entity);
+    $accountant = User::factory()->accountant()->create(['first_name' => 'Lena', 'last_name' => 'Keller']);
+
+    $escalation = app(EscalationService::class)->escalate($answer, $user);
+    app(EscalationService::class)->applyAnswer($escalation, 'Yes, from CHF 100,000.', accountant: $accountant);
+
+    $this->actingAs($user)
+        ->getJson(route('ask-settlo.bootstrap', $entity))
+        ->assertOk()
+        ->assertJsonPath('activeConversation.messages.1.escalation.accountantName', 'Lena Keller');
+});
+
+it('never queries a users.name column when escalating or bootstrapping (BUG-48)', function () {
+    Queue::fake([SimulateAccountantAnswer::class]);
+
+    [$user, $entity] = askOwner('pro', 1);
+    $answer = askAssistantMessage($user, $entity);
+
+    $queries = [];
+    DB::listen(function (QueryExecuted $query) use (&$queries): void {
+        $queries[] = $query->sql;
+    });
+
+    $this->actingAs($user)
+        ->postJson(route('ask-settlo.escalate', [$entity, $answer]))
+        ->assertCreated();
+
+    $this->actingAs($user)
+        ->getJson(route('ask-settlo.bootstrap', $entity))
+        ->assertOk();
+
+    expect($queries)->not->toBeEmpty()
+        ->and(collect($queries)->filter(fn (string $sql): bool => preg_match('/select "name" from "users"/', $sql) === 1))->toBeEmpty();
+});
+
+it('keeps the ?q= deep link when redirecting the legacy chat URL', function () {
+    [$user, $entity] = askOwner();
+
+    $location = $this->actingAs($user)
+        ->get(route('ask-settlo.index', ['businessEntity' => $entity, 'q' => 'Hello']))
+        ->assertRedirect()
+        ->headers->get('Location');
+
+    expect($location)->toContain('q=Hello')
+        ->and($location)->toStartWith(AskSettlo::getUrl(['tenant' => $entity], panel: 'workspace'));
+});
+
+it('sends the short VAT status label in the bootstrap context', function () {
+    [$user, $entity] = askOwner();
+
+    $this->actingAs($user)
+        ->getJson(route('ask-settlo.bootstrap', $entity))
+        ->assertOk()
+        ->assertJsonPath('context.vatStatus', 'Not registered');
 });

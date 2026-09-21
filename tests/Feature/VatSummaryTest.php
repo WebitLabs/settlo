@@ -1,7 +1,8 @@
 <?php
 
+use App\Enums\BusinessEntityType;
 use App\Enums\ExpenseStatus;
-use App\Filament\App\Pages\VatSummary;
+use App\Filament\Workspace\Pages\VatSummary;
 use App\Models\BusinessEntity;
 use App\Models\Expense;
 use App\Models\Subscription;
@@ -14,11 +15,11 @@ beforeEach(function () {
     $this->seed(ReferenceDataSeeder::class);
 
     $this->owner = User::factory()->owner()->create();
-    Subscription::factory()->for($this->owner, 'user')->create();
     $this->entity = BusinessEntity::factory()->forCanton('ZH')->for($this->owner, 'owner')->create();
+    Subscription::factory()->forEntity($this->entity)->create(); // trialing → can write
 
     $this->actingAs($this->owner);
-    Filament::setCurrentPanel(Filament::getPanel('app'));
+    Filament::setCurrentPanel(Filament::getPanel('workspace'));
     Filament::setTenant($this->entity);
 });
 
@@ -65,4 +66,50 @@ it('shows informational copy for a business without an MWST number', function ()
     Livewire::test(VatSummary::class)
         ->assertOk()
         ->assertSee('not VAT-registered');
+});
+
+it('tells the user which expenses await confirmation and links to them', function () {
+    $year = (int) config('settlo.current_fiscal_year', now()->year);
+
+    Expense::factory()->pendingReview()->for($this->entity, 'businessEntity')->count(2)->create([
+        'expense_date' => "{$year}-05-01",
+        'amount' => 50.25,
+    ]);
+
+    Livewire::test(VatSummary::class)
+        ->assertSee('2 expenses totalling CHF 100.50 are')
+        ->assertSee('awaiting confirmation and not included below.')
+        ->assertSee('Review expenses')
+        ->assertSee(e('?filters%5Bstatus%5D%5Bvalue%5D=pending_review'), false);
+});
+
+it('shows no pending notice when every expense is confirmed', function () {
+    Livewire::test(VatSummary::class)
+        ->assertDontSee('awaiting confirmation');
+});
+
+describe('several sole proprietorships', function () {
+    it('explains that sole proprietorships share one VAT registration', function () {
+        BusinessEntity::factory()->forCanton('ZH')->for($this->owner, 'owner')->create();
+
+        Livewire::test(VatSummary::class)
+            ->assertOk()
+            ->assertSee('all of your sole proprietorships share one VAT number');
+    });
+
+    it('does not show the notice for a single sole proprietorship', function () {
+        BusinessEntity::factory()->forCanton('ZH')->create();
+        BusinessEntity::factory()->forCanton('ZH')->for($this->owner, 'owner')->create(['type' => BusinessEntityType::GmbH]);
+
+        Livewire::test(VatSummary::class)
+            ->assertOk()
+            ->assertDontSee('share one VAT number');
+    });
+
+    it('does not show the notice on a company workspace', function () {
+        BusinessEntity::factory()->forCanton('ZH')->for($this->owner, 'owner')->create();
+        $this->entity->forceFill(['type' => BusinessEntityType::GmbH])->save();
+
+        expect((new VatSummary)->ownerHasSeveralSoleProprietorships())->toBeFalse();
+    });
 });

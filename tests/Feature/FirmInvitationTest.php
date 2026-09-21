@@ -93,7 +93,7 @@ it('accepts an invitation: creates the assignment and marks it accepted', functi
         ->post(route('firm-invitations.store', ['token' => $token]), [
             'business_entity_id' => $entity->getKey(),
         ])
-        ->assertRedirect('/app/'.$entity->getKey());
+        ->assertRedirect('/app/w/'.$entity->getKey());
 
     expect($invitation->fresh()->accepted_at)->not->toBeNull()
         ->and($invitation->fresh()->accepted_by_id)->toBe($owner->getKey());
