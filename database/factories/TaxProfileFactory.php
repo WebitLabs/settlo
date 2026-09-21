@@ -4,10 +4,9 @@ namespace Database\Factories;
 
 use App\Enums\MaritalStatus;
 use App\Enums\ResidencePermit;
-use App\Enums\VatStatus;
-use App\Models\BusinessEntity;
 use App\Models\Canton;
 use App\Models\TaxProfile;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,12 +22,11 @@ class TaxProfileFactory extends Factory
     public function definition(): array
     {
         return [
-            'business_entity_id' => BusinessEntity::factory(),
+            'user_id' => User::factory()->owner(),
             'canton_id' => fn () => Canton::query()->inRandomOrder()->value('id'),
-            'vat_status' => VatStatus::NotRegistered,
             'marital_status' => MaritalStatus::Single,
             'number_of_children' => 0,
-            'residence_permit' => ResidencePermit::SwissOrCPermit,
+            'residence_permit' => ResidencePermit::SwissCitizen,
             'pillar3a_amount' => 0,
             'has_pillar2' => false,
             'kirchensteuer' => false,
@@ -36,5 +34,12 @@ class TaxProfileFactory extends Factory
             'employment_income' => 0,
             'other_income' => 0,
         ];
+    }
+
+    public function forCanton(string $code): static
+    {
+        return $this->state(fn () => [
+            'canton_id' => Canton::where('code', $code)->value('id'),
+        ]);
     }
 }

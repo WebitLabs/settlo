@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\AiEscalationStatus;
 use App\Enums\AiQuestionCategory;
+use App\Enums\BillingInterval;
 use App\Enums\DeductibilityStatus;
 use App\Enums\ExpenseStatus;
 use App\Enums\InvoiceStatus;
@@ -22,27 +23,44 @@ use App\Models\AiMessage;
 use App\Models\BusinessEntity;
 use App\Models\Canton;
 use App\Models\Client;
+use App\Models\Commune;
 use App\Models\ExpenseCategory;
 use App\Models\Invoice;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\TaxProfile;
 use App\Models\User;
+use App\Services\Tax\TaxEngine;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * Demo fixtures for local development and tests only. NEVER runs in production
- * (guarded in DatabaseSeeder) — it ships known-weak credentials.
+ * Demo fixtures. In local and testing they carry the fixed weak password
+ * ("password"); anywhere else — where they only run behind the explicit
+ * `settlo.demo.seed_outside_local` flag — every account gets a strong random
+ * password, printed once so it can be captured (see {@see reportCredentials()}).
  */
 class DemoSeeder extends Seeder
 {
+    /** Length of the generated password used outside local/testing. */
+    private const int GENERATED_PASSWORD_LENGTH = 24;
+
+    /**
+     * The demo credentials created by this run, keyed by email.
+     *
+     * @var array<string, string>
+     */
+    private array $credentials = [];
+
     public function run(): void
     {
         $zh = Canton::where('code', 'ZH')->first();
+        $zurich = Commune::where('bfs_number', '261')->first();
         $proPlan = Plan::where('code', 'pro')->first();
+        $soloPlan = Plan::where('code', 'solo')->first() ?? $proPlan;
 
         // Superadmin -------------------------------------------------------
         User::updateOrCreate(
@@ -50,7 +68,7 @@ class DemoSeeder extends Seeder
             [
                 'first_name' => 'Sasha',
                 'last_name' => 'Admin',
-                'password' => Hash::make('password'),
+                'password' => $this->passwordFor('admin@settlo.ch'),
                 'role' => UserRole::Superadmin,
                 'status' => UserStatus::Active,
                 'email_verified_at' => now(),
@@ -64,12 +82,23 @@ class DemoSeeder extends Seeder
             [
                 'first_name' => 'Anna',
                 'last_name' => 'Müller',
-                'password' => Hash::make('password'),
+                'password' => $this->passwordFor('anna@test.ch'),
                 'phone' => '+41 79 123 45 67',
+                'phone_country' => 'CH',
+                'street' => 'Seefeldstrasse',
+                'street_number' => '12',
+                'postal_code' => '8008',
+                'city' => 'Zürich',
+                'country_code' => 'CH',
+                'canton_id' => $zh?->id,
+                'commune_id' => $zurich?->id,
                 'role' => UserRole::Owner,
                 'status' => UserStatus::Active,
                 'preferred_language' => 'en',
                 'email_verified_at' => now(),
+                'terms_accepted_at' => now(),
+                'privacy_acknowledged_at' => now(),
+                'terms_version' => '2026-09',
                 'onboarding_completed_at' => now(),
             ],
         );
@@ -84,6 +113,8 @@ class DemoSeeder extends Seeder
                 'city' => 'Zürich',
                 'postal_code' => '8001',
                 'canton_id' => $zh?->id,
+                'vat_status' => VatStatus::NotRegistered,
+                'estimated_annual_revenue' => 120000,
                 'iban' => 'CH02 0900 0000 1638 5793 1',
                 'default_currency' => 'CHF',
                 'default_payment_term_days' => 30,
@@ -92,26 +123,30 @@ class DemoSeeder extends Seeder
             ],
         );
 
-        TaxProfile::updateOrCreate(
-            ['business_entity_id' => $entity->id],
-            [
-                'canton_id' => $zh?->id,
-                'vat_status' => VatStatus::NotRegistered,
-                'estimated_annual_revenue' => 120000,
-                'marital_status' => MaritalStatus::Single,
-                'number_of_children' => 0,
-                'residence_permit' => ResidencePermit::SwissOrCPermit,
-                'pillar3a_amount' => 7056,
-                'has_pillar2' => false,
-                'kirchensteuer' => false,
-                'birth_year' => 1992,
-            ],
-        );
+        $anna->forceFill(['last_business_entity_id' => $entity->id])->save();
+
+        $taxProfile = TaxProfile::firstOrNew(['user_id' => $anna->id]);
+        $taxProfile->fill([
+            'canton_id' => $zh?->id,
+            'marital_status' => MaritalStatus::Single,
+            'number_of_children' => 0,
+            'residence_permit' => ResidencePermit::SwissCitizen,
+            'pillar3a_amount' => 7056,
+            'has_pillar2' => false,
+            'kirchensteuer' => false,
+            'birth_year' => 1992,
+        ]);
+        $taxProfile->forceFill(['user_id' => $anna->id])->save();
 
         Subscription::updateOrCreate(
-            ['user_id' => $anna->id],
+            ['business_entity_id' => $entity->id],
             [
+                'user_id' => $anna->id,
                 'plan_id' => $proPlan?->id,
+                'billing_interval' => BillingInterval::Month,
+                'discount_percent' => 0,
+                'unit_price' => $proPlan?->price_monthly,
+                'trial_used' => true,
                 'status' => SubscriptionStatus::Trialing,
                 'trial_starts_at' => now()->subDays(2),
                 'trial_ends_at' => now()->addDays(12),
@@ -122,10 +157,161 @@ class DemoSeeder extends Seeder
             ],
         );
 
+        $anna->forceFill(['trial_used_at' => $anna->trial_used_at ?? now()->subDays(2)])->save();
+
         $this->seedClientsAndInvoices($entity);
         $this->seedExpenses($entity);
         $maria = $this->seedFirm($entity);
         $this->seedAiConversations($entity, $anna, $maria);
+        $this->seedSecondBusiness($anna, $zh, $soloPlan);
+        $this->seedTaxEstimation($anna);
+        $this->reportCredentials();
+    }
+
+    /**
+     * A second workspace for the same owner, so the multi-business structure —
+     * separate books, its own subscription and the 20 % second-workspace
+     * discount — is visible in the demo.
+     *
+     * It is deliberately still empty of issued invoices: the owner's personal
+     * tax is split across their sole proprietorships by net income, and a
+     * second earning business would change the canonical figures of the first.
+     */
+    private function seedSecondBusiness(User $owner, ?Canton $canton, ?Plan $plan): BusinessEntity
+    {
+        $entity = BusinessEntity::updateOrCreate(
+            ['owner_id' => $owner->id, 'name' => 'Müller Fotografie'],
+            [
+                'type' => 'sole_proprietorship',
+                'uid' => 'CHE-372.114.869',
+                'street' => 'Langstrasse',
+                'street_number' => '94',
+                'city' => 'Zürich',
+                'postal_code' => '8004',
+                'canton_id' => $canton?->id,
+                'vat_status' => VatStatus::NotRegistered,
+                'estimated_annual_revenue' => 24000,
+                'iban' => 'CH56 0483 5012 3456 7800 9',
+                'default_currency' => 'CHF',
+                'default_payment_term_days' => 20,
+                'default_language' => 'de',
+                'invoice_number_prefix' => 'FOTO-',
+            ],
+        );
+
+        $discount = (int) (config('settlo.billing.workspace_discounts')[2] ?? 0);
+        $price = $plan?->price_monthly !== null
+            ? round((float) $plan->price_monthly * (100 - $discount) / 100, 2)
+            : null;
+
+        Subscription::updateOrCreate(
+            ['business_entity_id' => $entity->id],
+            [
+                'user_id' => $owner->id,
+                'plan_id' => $plan?->id,
+                'billing_interval' => BillingInterval::Month,
+                'discount_percent' => $discount,
+                'unit_price' => $price,
+                'trial_used' => true,
+                'status' => SubscriptionStatus::Active,
+                'current_period_start' => now()->startOfMonth(),
+                'current_period_end' => now()->startOfMonth()->addMonth(),
+                'human_answers_used' => 0,
+                'human_answers_quota' => 0,
+                'quota_reset_at' => now()->addMonth()->startOfMonth(),
+                'gateway' => 'simulated',
+            ],
+        );
+
+        $client = Client::firstOrCreate(
+            ['business_entity_id' => $entity->id, 'name' => 'Hochzeit Keller'],
+            [
+                'city' => 'Winterthur',
+                'postal_code' => '8400',
+                'country_code' => 'CH',
+                'default_language' => 'de',
+            ],
+        );
+
+        $invoice = Invoice::updateOrCreate(
+            ['business_entity_id' => $entity->id, 'invoice_number' => 'FOTO-2026-0001'],
+            [
+                'client_id' => $client->id,
+                'status' => InvoiceStatus::Draft,
+                'subtotal' => 2400,
+                'vat_amount' => 0,
+                'total' => 2400,
+                'currency_code' => 'CHF',
+                'issue_date' => now(),
+                'due_date' => now()->addDays(20),
+                'language' => 'de',
+                'paid_amount' => 0,
+            ],
+        );
+
+        $invoice->lineItems()->delete();
+        $invoice->lineItems()->create([
+            'description' => 'Hochzeitsreportage',
+            'quantity' => 1,
+            'unit_price' => 2400,
+            'vat_rate' => 0,
+            'line_total' => 2400,
+            'sort_order' => 0,
+        ]);
+
+        return $entity;
+    }
+
+    /**
+     * Run the tax engine once so the demo opens with a populated estimate
+     * instead of empty tax widgets.
+     */
+    private function seedTaxEstimation(User $owner): void
+    {
+        app(TaxEngine::class)->estimateAllFor($owner);
+    }
+
+    /**
+     * The password a demo account is created with: the fixed local credential
+     * in local/testing, a strong generated one anywhere else. Generated
+     * passwords are kept for {@see reportCredentials()} and never reused
+     * between accounts.
+     */
+    private function passwordFor(string $email): string
+    {
+        if (app()->environment(['local', 'testing'])) {
+            return Hash::make((string) config('settlo.demo.local_password', 'password'));
+        }
+
+        $password = Str::password(self::GENERATED_PASSWORD_LENGTH);
+        $this->credentials[$email] = $password;
+
+        return Hash::make($password);
+    }
+
+    /**
+     * Print the generated demo credentials once — to the console when there is
+     * one, and to the log so a serverless deploy can still capture them. They
+     * cannot be recovered afterwards: re-run the seeder to get new ones.
+     */
+    private function reportCredentials(): void
+    {
+        if ($this->credentials === []) {
+            return;
+        }
+
+        $lines = ['Demo accounts created with generated passwords (shown once):'];
+
+        foreach ($this->credentials as $email => $password) {
+            $lines[] = "  {$email}  {$password}";
+        }
+
+        $message = implode(PHP_EOL, $lines);
+
+        $this->command?->warn($message);
+        Log::warning($message);
+
+        $this->credentials = [];
     }
 
     private function seedClientsAndInvoices(BusinessEntity $entity): void
@@ -233,7 +419,7 @@ class DemoSeeder extends Seeder
             [
                 'first_name' => 'Maria',
                 'last_name' => 'Schneider',
-                'password' => Hash::make('password'),
+                'password' => $this->passwordFor('maria@test.ch'),
                 'role' => UserRole::Accountant,
                 'status' => UserStatus::Active,
                 'email_verified_at' => now(),

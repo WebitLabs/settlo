@@ -10,11 +10,13 @@
         "barryvdh/laravel-dompdf": "^3.1",
         "filament/filament": "^5.0",
         "inertiajs/inertia-laravel": "^3.0",
+        "laravel/cashier": "^16.8",
         "laravel/framework": "^13.0",
         "laravel/horizon": "^5.47",
         "laravel/reverb": "^1.10",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.35",
+        "propaganistas/laravel-phone": "^6.0",
         "sprain/swiss-qr-bill": "^5.3"
     },
     "require-dev": {
@@ -26,6 +28,7 @@
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^4.4",
+        "pestphp/pest-plugin-browser": "^4.3",
         "pestphp/pest-plugin-laravel": "^4.1"
     },
     "autoload": {
@@ -52,6 +55,9 @@
         "dev": [
             "Composer\\Config::disableProcessTimeout",
             "npx concurrently -c \"#93c5fd,#c4b5fd,#a7f3d0,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan horizon\" \"php artisan reverb:start\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,horizon,reverb,logs,vite --kill-others"
+        ],
+        "deploy": [
+            "@php artisan settlo:deploy"
         ],
         "test": [
             "@php artisan config:clear --ansi",

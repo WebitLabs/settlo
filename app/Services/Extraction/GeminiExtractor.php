@@ -49,11 +49,14 @@ class GeminiExtractor implements ReceiptExtractor
         }
 
         try {
+            // The whole call has to fit inside the serverless execution budget:
+            // attempts * (connect timeout + timeout) plus the pause between
+            // attempts. See config/services.php for the sizing.
             $response = $this->http
                 ->baseUrl($this->endpoint)
-                ->timeout((int) config('services.gemini.extract_timeout', 60))
-                ->connectTimeout(10)
-                ->retry(2, 1000, throw: false)
+                ->timeout((int) config('services.gemini.extract_timeout', 15))
+                ->connectTimeout((int) config('services.gemini.extract_connect_timeout', 5))
+                ->retry((int) config('services.gemini.extract_attempts', 2), 500, throw: false)
                 ->withHeaders(['x-goog-api-key' => $this->apiKey])
                 ->post("/models/{$this->model}:generateContent", $this->payload($contents, $mimeType));
         } catch (Throwable $e) {

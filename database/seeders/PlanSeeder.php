@@ -11,7 +11,9 @@ class PlanSeeder extends Seeder
     /**
      * The three Settlo subscription tiers. `features` drives server-side
      * gating; `marketing_features` is the display-only bullet list on the plan
-     * cards (may list claims not yet enforced, e.g. year-end export).
+     * cards. Every bullet that names a feature maps to a PlanFeature that is
+     * actually built and gated — the cards never sell something the plan does
+     * not unlock.
      */
     public function run(): void
     {
@@ -20,6 +22,7 @@ class PlanSeeder extends Seeder
                 'code' => 'solo',
                 'name' => 'Solo',
                 'price_monthly' => 19,
+                'price_yearly' => 190,
                 'trial_days' => 14,
                 'human_answers_quota' => 0,
                 'features' => [
@@ -38,6 +41,7 @@ class PlanSeeder extends Seeder
                 'code' => 'pro',
                 'name' => 'Pro',
                 'price_monthly' => 49,
+                'price_yearly' => 490,
                 'trial_days' => 14,
                 'human_answers_quota' => 1,
                 'features' => [
@@ -59,6 +63,7 @@ class PlanSeeder extends Seeder
                 'code' => 'confidence',
                 'name' => 'Confidence',
                 'price_monthly' => 99,
+                'price_yearly' => 990,
                 'trial_days' => 14,
                 'human_answers_quota' => 3,
                 'features' => [

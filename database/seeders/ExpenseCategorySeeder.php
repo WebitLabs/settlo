@@ -29,7 +29,7 @@ class ExpenseCategorySeeder extends Seeder
             ['cat_marketing', 'Marketing & advertising', 'Marketing', 100, $full, false, true, 'DBG Art. 27', 'Website, Google Ads, LinkedIn Premium.'],
             ['cat_insurance', 'Business insurance', 'Versicherungen', 100, $full, false, true, 'DBG Art. 27', 'Berufshaftpflicht, business interruption.'],
             ['cat_professional', 'Professional services', 'Beratungskosten', 100, $full, false, true, 'DBG Art. 27', 'Treuhänder, business lawyer fees.'],
-            ['cat_homeoffice', 'Home office', 'Homeoffice', 100, $full, true, true, 'DBG Art. 27', 'Pro-rata by floor area of rent, utilities, internet.'],
+            ['cat_homeoffice', 'Home office', 'Homeoffice', 25, $partial, true, true, 'DBG Art. 27', 'Pro-rata only: your office m² ÷ your total m², applied to rent, utilities and internet. The 25 % default assumes one room in four — set your real floor-area share.'],
             ['cat_vehicle', 'Vehicle (business use)', 'Fahrzeug', 50, $partial, true, true, 'DBG Art. 27', 'Business km / total km; without a logbook 50% max.'],
             ['cat_meals', 'Business meals', 'Geschäftsessen', 50, $partial, true, true, 'DBG Art. 27 II', 'Client meals — document attendees and business purpose.'],
             ['cat_gifts', 'Client gifts', 'Geschenke', 50, $partial, true, true, 'DBG Art. 27 II', '100% up to CHF 100/recipient/year, 50% above.'],

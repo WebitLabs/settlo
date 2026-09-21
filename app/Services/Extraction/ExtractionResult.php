@@ -27,11 +27,17 @@ final readonly class ExtractionResult
     ) {}
 
     /**
+     * Persisted verbatim as the expense's ocr_raw_data. `model_used` travels
+     * with it so a stand-in result (model "fake") is always distinguishable
+     * from a real provider read, long after the request that produced it.
+     *
      * @return array<string, mixed>
      */
     public function toArray(): array
     {
         return [
+            'model_used' => $this->meta['model'] ?? null,
+            'simulated' => (bool) ($this->meta['simulated'] ?? false),
             'vendor_name' => $this->vendorName,
             'document_date' => $this->documentDate,
             'total_amount' => $this->totalAmount,
