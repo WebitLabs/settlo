@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Subscriptions\Schemas;
 
 use App\Models\Subscription;
+use App\Support\SimulatedBilling;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -25,7 +26,31 @@ class SubscriptionInfolist
                             ->color('gray'),
                         TextEntry::make('status')
                             ->badge(),
+                        TextEntry::make('businessEntity.name')
+                            ->label('Business')
+                            ->placeholder('—'),
+                        TextEntry::make('billing_interval')
+                            ->label('Interval')
+                            ->badge()
+                            ->color('gray'),
+                        TextEntry::make('discount_percent')
+                            ->label('Discount')
+                            ->suffix(' %'),
+                        TextEntry::make('unit_price')
+                            ->label('Unit price')
+                            ->money('CHF')
+                            ->placeholder('—'),
                         TextEntry::make('gateway')
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state): string => SimulatedBilling::isSimulatedPayment($state)
+                                ? 'Simulated ('.($state ?: 'unknown').')'
+                                : 'Stripe')
+                            ->color(fn (?string $state): string => SimulatedBilling::isSimulatedPayment($state) ? 'warning' : 'success')
+                            ->helperText(fn (?string $state): ?string => SimulatedBilling::isSimulatedPayment($state)
+                                ? 'No card was charged for this subscription.'
+                                : null),
+                        TextEntry::make('stripe_subscription_type')
+                            ->label('Stripe type')
                             ->placeholder('—'),
                     ]),
                 Section::make('Periods')

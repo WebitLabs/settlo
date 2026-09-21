@@ -11,13 +11,14 @@ class Commune extends Model
     use HasUuids;
 
     protected $fillable = [
-        'canton_id', 'name', 'bfs_number', 'tax_multiplier', 'effective_from', 'effective_to',
+        'canton_id', 'name', 'bfs_number', 'tax_multiplier', 'multiplier_is_estimated', 'effective_from', 'effective_to',
     ];
 
     protected function casts(): array
     {
         return [
             'tax_multiplier' => 'decimal:4',
+            'multiplier_is_estimated' => 'boolean',
             'effective_from' => 'date',
             'effective_to' => 'date',
         ];

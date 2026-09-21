@@ -108,6 +108,6 @@ class ClientEntityResource extends Resource
                 'invoices as revenue_ytd' => fn (Builder $query) => $query
                     ->countsAsRevenue()
                     ->whereYear('issue_date', $year),
-            ], 'total');
+            ], 'subtotal');
     }
 }

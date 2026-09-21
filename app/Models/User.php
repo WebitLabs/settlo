@@ -2,17 +2,21 @@
 
 namespace App\Models;
 
+use App\Enums\BusinessEntityType;
 use App\Enums\PlanFeature;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasDefaultTenant;
 use Filament\Models\Contracts\HasName;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -20,11 +24,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
+use Laravel\Cashier\Billable;
 
-class User extends Authenticatable implements FilamentUser, HasName, HasTenants
+class User extends Authenticatable implements FilamentUser, HasDefaultTenant, HasName, HasTenants, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes;
+    use Billable, HasFactory, Notifiable, SoftDeletes;
 
     /**
      * Mass-assignable attributes. Security-critical columns (role, status,
@@ -41,6 +46,14 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
         'phone',
         'preferred_language',
         'avatar_url',
+        'street',
+        'street_number',
+        'postal_code',
+        'city',
+        'country_code',
+        'canton_id',
+        'commune_id',
+        'phone_country',
     ];
 
     /**
@@ -58,6 +71,11 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
+            'trial_used_at' => 'datetime',
+            'trial_ends_at' => 'datetime',
+            'privacy_acknowledged_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
             'status' => UserStatus::class,
@@ -73,6 +91,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
         'role' => 'owner',
         'status' => 'pending_verification',
         'preferred_language' => 'en',
+        'country_code' => 'CH',
     ];
 
     /**
@@ -89,7 +108,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
         return match ($panel->getId()) {
             'admin' => $this->role === UserRole::Superadmin,
             'firm' => $this->role === UserRole::Accountant,
-            'app' => $this->role === UserRole::Owner,
+            'app', 'workspace' => $this->role === UserRole::Owner,
             default => false,
         };
     }
@@ -100,18 +119,32 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
     }
 
     /**
-     * The tenants selectable in a panel. The app panel is scoped to the
+     * The tenants selectable in a panel. The workspace panel is scoped to the
      * businesses this owner owns; the firm panel to the accounting firms this
-     * accountant belongs to. Other roles have no tenants here.
+     * accountant belongs to. The personal app panel has no tenants.
      *
      * @return Collection<int, Model>
      */
     public function getTenants(Panel $panel): Collection
     {
         return match ($panel->getId()) {
-            'app' => $this->ownedEntities()->get(),
+            'workspace' => $this->ownedEntities()->orderBy('name')->get(),
             'firm' => $this->accountingFirms()->get(),
             default => collect(),
+        };
+    }
+
+    /**
+     * The tenant opened when a panel is entered without one: the last opened
+     * workspace (falling back to the oldest business), or the first firm.
+     */
+    public function getDefaultTenant(Panel $panel): ?Model
+    {
+        return match ($panel->getId()) {
+            'workspace' => $this->lastBusinessEntity()->where('owner_id', $this->getKey())->first()
+                ?? $this->ownedEntities()->oldest()->first(),
+            'firm' => $this->accountingFirms()->first(),
+            default => null,
         };
     }
 
@@ -158,10 +191,57 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
         return $this->hasMany(BusinessEntity::class, 'owner_id');
     }
 
-    /** @return HasOne<Subscription, $this> */
-    public function subscription(): HasOne
+    /**
+     * The owner's businesses that are taxed on the person (sole proprietorships).
+     *
+     * @return HasMany<BusinessEntity, $this>
+     */
+    public function soleProprietorships(): HasMany
     {
-        return $this->hasOne(Subscription::class);
+        return $this->ownedEntities()->where('type', BusinessEntityType::SoleProprietorship);
+    }
+
+    /** @return BelongsTo<BusinessEntity, $this> */
+    public function lastBusinessEntity(): BelongsTo
+    {
+        return $this->belongsTo(BusinessEntity::class, 'last_business_entity_id');
+    }
+
+    /** @return HasOne<TaxProfile, $this> */
+    public function taxProfile(): HasOne
+    {
+        return $this->hasOne(TaxProfile::class);
+    }
+
+    /** @return BelongsTo<Canton, $this> */
+    public function canton(): BelongsTo
+    {
+        return $this->belongsTo(Canton::class);
+    }
+
+    /** @return BelongsTo<Commune, $this> */
+    public function commune(): BelongsTo
+    {
+        return $this->belongsTo(Commune::class);
+    }
+
+    /** @return HasMany<TaxEstimation, $this> */
+    public function taxEstimations(): HasMany
+    {
+        return $this->hasMany(TaxEstimation::class);
+    }
+
+    /**
+     * The latest consolidated (personal) tax estimation, i.e. the snapshot that
+     * is not tied to a single business.
+     */
+    public function personalTaxEstimation(?int $fiscalYear = null): ?TaxEstimation
+    {
+        return $this->taxEstimations()
+            ->whereNull('business_entity_id')
+            ->when($fiscalYear, fn ($query) => $query->where('fiscal_year', $fiscalYear))
+            ->latest('calculated_at')
+            ->first();
     }
 
     /** @return HasMany<AccountingFirmMember, $this> */
@@ -188,48 +268,48 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
             ->withTimestamps();
     }
 
-    // Plan gating ---------------------------------------------------------
+    // Billing -------------------------------------------------------------
 
     /**
-     * The plan features currently available to this user. A trial grants full
-     * Pro-tier features on top of the chosen plan (per spec); an expired or
-     * cancelled subscription grants nothing.
+     * The owner's per-workspace (domain) subscriptions. Cashier's own
+     * `subscription()` / `subscriptions()` refer to the Stripe mirror.
      *
-     * @return list<string>
+     * @return HasMany<Subscription, $this>
      */
-    public function planFeatures(): array
+    public function workspaceSubscriptions(): HasMany
     {
-        $subscription = $this->subscription;
-
-        if (! $subscription || ! $subscription->grantsAccess()) {
-            return [];
-        }
-
-        $features = $subscription->plan?->features ?? [];
-
-        if ($subscription->status === SubscriptionStatus::Trialing) {
-            $proFeatures = Plan::where('code', 'pro')->value('features') ?? [];
-            $features = array_values(array_unique([...$features, ...$proFeatures]));
-        }
-
-        return $features;
+        return $this->hasMany(Subscription::class);
     }
 
-    public function hasFeature(PlanFeature $feature): bool
+    public function hasFeatureInAnyWorkspace(PlanFeature $feature): bool
     {
-        if (! config('settlo.enforce_feature_gates', true)) {
-            return $this->subscription?->grantsAccess() ?? false;
-        }
-
-        return in_array($feature->value, $this->planFeatures(), true);
+        return $this->ownedEntities()
+            ->with('subscription.plan')
+            ->get()
+            ->contains(fn (BusinessEntity $entity): bool => $entity->hasFeature($feature));
     }
 
     /**
-     * Whether the account may perform writes. An expired/cancelled-and-ended
-     * subscription drops the account into a read-only locked state.
+     * The number of workspace subscriptions that count towards the
+     * multi-business discount (trialing, active or past due).
      */
-    public function canWrite(): bool
+    public function activeWorkspaceSubscriptionCount(?BusinessEntity $except = null): int
     {
-        return $this->subscription?->grantsAccess() ?? false;
+        return $this->workspaceSubscriptions()
+            ->whereIn('status', [
+                SubscriptionStatus::Trialing->value,
+                SubscriptionStatus::Active->value,
+                SubscriptionStatus::PastDue->value,
+            ])
+            ->when($except, fn ($query) => $query->where('business_entity_id', '!=', $except->getKey()))
+            ->count();
+    }
+
+    /**
+     * Whether the owner already had the one free trial.
+     */
+    public function hasUsedTrial(): bool
+    {
+        return $this->trial_used_at !== null;
     }
 }

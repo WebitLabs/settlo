@@ -34,7 +34,7 @@ class ClientEntitiesTable
                 TextColumn::make('vat_status')
                     ->label('VAT')
                     ->badge()
-                    ->state(fn (BusinessEntity $record): string => filled($record->mwst_number) ? 'Registered' : '—')
+                    ->state(fn (BusinessEntity $record): string => $record->isVatRegistered() ? 'Registered' : '—')
                     ->color(fn (string $state): string => $state === 'Registered' ? 'success' : 'gray'),
                 TextColumn::make('assigned_accountant')
                     ->label('Assigned accountant')

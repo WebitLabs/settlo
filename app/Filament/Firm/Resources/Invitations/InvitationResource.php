@@ -4,6 +4,7 @@ namespace App\Filament\Firm\Resources\Invitations;
 
 use App\Filament\Firm\Resources\Invitations\Pages\ListInvitations;
 use App\Filament\Firm\Resources\Invitations\Tables\InvitationsTable;
+use App\Models\AccountingFirmMember;
 use App\Models\FirmClientInvitation;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -11,6 +12,7 @@ use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Client invitations a firm has sent. Invitations are created and re-sent
@@ -41,6 +43,33 @@ class InvitationResource extends Resource
         return [
             'index' => ListInvitations::route('/'),
         ];
+    }
+
+    /**
+     * Inviting a client is a firm-owner action, like every other team change.
+     */
+    public static function canCreate(): bool
+    {
+        return static::currentUserIsFirmOwner();
+    }
+
+    /**
+     * Whether the authenticated user is an owner of the current firm tenant.
+     * Gates the invite/resend/revoke actions in this resource.
+     */
+    public static function currentUserIsFirmOwner(): bool
+    {
+        $tenant = Filament::getTenant();
+
+        if ($tenant === null) {
+            return false;
+        }
+
+        return AccountingFirmMember::query()
+            ->where('accounting_firm_id', $tenant->getKey())
+            ->where('user_id', Auth::id())
+            ->where('is_owner', true)
+            ->exists();
     }
 
     /**

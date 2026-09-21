@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\Resources\Subscriptions\Tables;
 
+use App\Enums\BillingInterval;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Services\Audit\AuditLogger;
 use App\Services\Billing\SubscriptionService;
+use App\Support\SimulatedBilling;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
@@ -21,19 +23,45 @@ class SubscriptionsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->description(SimulatedBilling::isActive() ? SimulatedBilling::notice() : null)
             ->columns([
                 TextColumn::make('user.email')
                     ->label('User')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('businessEntity.name')
+                    ->label('Business')
+                    ->searchable()
+                    ->placeholder('—'),
                 TextColumn::make('plan.name')
                     ->label('Plan')
                     ->badge()
                     ->color('gray')
                     ->sortable(),
+                TextColumn::make('billing_interval')
+                    ->label('Interval')
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('discount_percent')
+                    ->label('Discount')
+                    ->suffix(' %')
+                    ->alignEnd()
+                    ->sortable(),
+                TextColumn::make('unit_price')
+                    ->label('Unit price')
+                    ->money('CHF')
+                    ->description(fn (Subscription $record): ?string => SimulatedBilling::isSimulatedPayment($record->gateway)
+                        ? 'simulated'
+                        : null)
+                    ->placeholder('—')
+                    ->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
+                TextColumn::make('stripe_subscription_type')
+                    ->label('Stripe type')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('trial_ends_at')
                     ->label('Trial ends')
                     ->dateTime('d.m.Y')
@@ -52,6 +80,9 @@ class SubscriptionsTable
             ->filters([
                 SelectFilter::make('status')
                     ->options(SubscriptionStatus::class),
+                SelectFilter::make('billing_interval')
+                    ->label('Interval')
+                    ->options(BillingInterval::class),
                 SelectFilter::make('plan_id')
                     ->label('Plan')
                     ->relationship('plan', 'name'),

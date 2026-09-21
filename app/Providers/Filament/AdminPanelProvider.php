@@ -27,6 +27,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->brandName('Settlo Superadmin')
+            ->favicon(asset('images/settlo-icon-32.png'))
             ->login()
             ->viteTheme('resources/css/filament/theme.css')
             ->colors([
@@ -49,13 +50,7 @@ class AdminPanelProvider extends PanelProvider
                 'Tax configuration',
                 'System',
             ])
-            ->navigationItems([
-                NavigationItem::make('Horizon')
-                    ->url('/horizon', shouldOpenInNewTab: true)
-                    ->icon(Heroicon::OutlinedQueueList)
-                    ->group('System')
-                    ->sort(99),
-            ])
+            ->navigationItems($this->systemNavigationItems())
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -70,5 +65,27 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ]);
+    }
+
+    /**
+     * Horizon only exists behind the redis queue driver. Serverless deploys run
+     * another driver with no Horizon process, where the link would 404 — so it
+     * is only offered where it can actually work.
+     *
+     * @return array<int, NavigationItem>
+     */
+    private function systemNavigationItems(): array
+    {
+        if (config('queue.default') !== 'redis') {
+            return [];
+        }
+
+        return [
+            NavigationItem::make('Horizon')
+                ->url('/horizon', shouldOpenInNewTab: true)
+                ->icon(Heroicon::OutlinedQueueList)
+                ->group('System')
+                ->sort(99),
+        ];
     }
 }

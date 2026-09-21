@@ -3,6 +3,7 @@
 namespace App\Filament\Firm\Resources\Invitations\Pages;
 
 use App\Filament\Firm\Resources\Invitations\InvitationResource;
+use App\Models\FirmClientInvitation;
 use App\Services\Firm\FirmInvitationService;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -22,6 +23,8 @@ class ListInvitations extends ListRecords
             Action::make('invite')
                 ->label('Invite client')
                 ->icon('heroicon-m-paper-airplane')
+                ->visible(fn (): bool => InvitationResource::currentUserIsFirmOwner())
+                ->authorize(fn (): bool => Auth::user()->can('create', FirmClientInvitation::class))
                 ->schema([
                     TextInput::make('email')
                         ->label('Client email')
@@ -34,6 +37,8 @@ class ListInvitations extends ListRecords
                         ->rows(3),
                 ])
                 ->action(function (array $data): void {
+                    abort_unless(InvitationResource::currentUserIsFirmOwner(), 403);
+
                     app(FirmInvitationService::class)->invite(
                         Filament::getTenant(),
                         $data['email'],

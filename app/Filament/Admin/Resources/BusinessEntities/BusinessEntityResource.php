@@ -13,6 +13,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
@@ -56,7 +57,41 @@ class BusinessEntityResource extends Resource
         ];
     }
 
+    /**
+     * The shared BusinessEntityPolicy scopes visibility to the owning tenant
+     * (owners) and to firms with an active assignment (accountants), so a
+     * superadmin — who is neither — would fail its viewAny/view checks and get a
+     * 403 here. Access to this panel is already gated to superadmins by
+     * User::canAccessPanel, and this resource is read-only oversight, so viewing
+     * is authorized directly rather than through the tenant policy. Mirrors
+     * Admin\Resources\Escalations\EscalationResource.
+     */
+    public static function canViewAny(): bool
+    {
+        return true;
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return true;
+    }
+
     public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
     {
         return false;
     }

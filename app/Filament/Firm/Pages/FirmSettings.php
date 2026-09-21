@@ -4,6 +4,7 @@ namespace App\Filament\Firm\Pages;
 
 use App\Models\AccountingFirm;
 use App\Models\AccountingFirmMember;
+use App\Services\Audit\AuditLogger;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -137,10 +138,15 @@ class FirmSettings extends Page
         abort_unless(static::currentUserIsFirmOwner(), 403);
 
         $data = $this->form->getState();
+        $firm = $this->firm();
+        $changes = collect($data)->only(self::EDITABLE_FIELDS)->all();
 
-        $this->firm()->forceFill(
-            collect($data)->only(self::EDITABLE_FIELDS)->all()
-        )->save();
+        $firm->forceFill($changes)->save();
+
+        app(AuditLogger::class)->log('firm.settings_updated', $firm, [
+            'accounting_firm_id' => $firm->getKey(),
+            'changed' => array_keys($firm->getChanges()),
+        ]);
 
         Notification::make()->title('Firm settings saved')->success()->send();
     }

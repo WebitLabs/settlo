@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BillingInterval;
 use App\Enums\SubscriptionStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,10 +24,21 @@ class Subscription extends Model
         'user_id', 'plan_id',
     ];
 
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'billing_interval' => 'month',
+        'discount_percent' => 0,
+    ];
+
     protected function casts(): array
     {
         return [
             'status' => SubscriptionStatus::class,
+            'billing_interval' => BillingInterval::class,
+            'discount_percent' => 'integer',
+            'unit_price' => 'decimal:2',
             'trial_starts_at' => 'datetime',
             'trial_ends_at' => 'datetime',
             'trial_used' => 'boolean',
@@ -44,6 +56,28 @@ class Subscription extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<BusinessEntity, $this> */
+    public function businessEntity(): BelongsTo
+    {
+        return $this->belongsTo(BusinessEntity::class);
+    }
+
+    /**
+     * The Cashier subscription mirroring this workspace subscription at Stripe
+     * (null for dummy / not yet checked-out subscriptions).
+     */
+    public function stripeSubscription(): ?StripeSubscription
+    {
+        if (blank($this->stripe_subscription_type)) {
+            return null;
+        }
+
+        /** @var StripeSubscription|null $stripeSubscription */
+        $stripeSubscription = $this->user?->subscription((string) $this->stripe_subscription_type);
+
+        return $stripeSubscription;
     }
 
     /** @return BelongsTo<Plan, $this> */

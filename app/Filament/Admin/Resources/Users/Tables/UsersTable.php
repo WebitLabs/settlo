@@ -36,7 +36,7 @@ class UsersTable
                     ->badge()
                     ->sortable(),
                 TextColumn::make('ownedEntities_count')
-                    ->label('Entities')
+                    ->label('Businesses')
                     ->numeric()
                     ->alignEnd(),
                 TextColumn::make('firmMemberships_count')

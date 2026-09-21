@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\SubscriptionPayments\Tables;
 
 use App\Models\SubscriptionPayment;
+use App\Support\SimulatedBilling;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
@@ -16,6 +17,7 @@ class SubscriptionPaymentsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->description(SimulatedBilling::isActive() ? SimulatedBilling::notice() : null)
             ->columns([
                 TextColumn::make('paid_at')
                     ->label('Paid')
@@ -26,20 +28,32 @@ class SubscriptionPaymentsTable
                     ->label('User')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('subscription.businessEntity.name')
+                    ->label('Business')
+                    ->placeholder('—'),
                 TextColumn::make('plan.name')
                     ->label('Plan')
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('amount')
                     ->money('chf')
+                    ->description(fn (SubscriptionPayment $record): ?string => SimulatedBilling::isSimulatedPayment($record->gateway)
+                        ? 'no card charged'
+                        : null)
                     ->sortable()
                     ->alignEnd(),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (SubscriptionPayment $record): string => $record->status === 'paid' ? 'success' : 'warning')
                     ->sortable(),
+                // Never toggled away: it is the only thing on the row that says
+                // whether the amount was really collected.
                 TextColumn::make('gateway')
-                    ->toggleable(),
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => SimulatedBilling::isSimulatedPayment($state)
+                        ? 'Simulated ('.($state ?: 'unknown').')'
+                        : 'Stripe')
+                    ->color(fn (?string $state): string => SimulatedBilling::isSimulatedPayment($state) ? 'warning' : 'success'),
                 TextColumn::make('gateway_reference')
                     ->label('Reference')
                     ->copyable()

@@ -7,6 +7,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Read-only roster of the firm's team members.
@@ -25,8 +26,9 @@ class MembersRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('user'))
             ->columns([
-                TextColumn::make('user.name')
+                TextColumn::make('member_name')
                     ->label('Name')
                     ->state(fn (AccountingFirmMember $record): ?string => $record->user?->getFilamentName()),
                 TextColumn::make('user.email')

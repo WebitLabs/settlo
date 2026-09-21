@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Shared\Auth\RequestPasswordReset;
 use App\Models\AccountingFirm;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -26,8 +27,9 @@ class FirmPanelProvider extends PanelProvider
             ->id('firm')
             ->path('firm')
             ->brandName('Settlo for Accountants')
+            ->favicon(asset('images/settlo-icon-32.png'))
             ->login()
-            ->passwordReset()
+            ->passwordReset(RequestPasswordReset::class)
             ->tenant(AccountingFirm::class)
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')

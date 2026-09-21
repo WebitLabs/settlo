@@ -2,13 +2,14 @@
 
 namespace App\Filament\Firm\Resources\Invitations\Tables;
 
+use App\Filament\Firm\Resources\Invitations\InvitationResource;
 use App\Models\FirmClientInvitation;
 use App\Services\Firm\FirmInvitationService;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class InvitationsTable
 {
@@ -40,10 +41,7 @@ class InvitationsTable
             ])
             ->recordActions([
                 self::resendAction(),
-                DeleteAction::make()
-                    ->label('Revoke')
-                    ->modalHeading('Revoke invitation')
-                    ->visible(fn (FirmClientInvitation $record): bool => $record->isPending()),
+                self::revokeAction(),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -68,11 +66,37 @@ class InvitationsTable
             ->requiresConfirmation()
             ->modalHeading('Resend invitation')
             ->modalDescription('A new link is generated and emailed; the previous link stops working.')
-            ->visible(fn (FirmClientInvitation $record): bool => $record->accepted_at === null)
+            ->visible(fn (FirmClientInvitation $record): bool => $record->accepted_at === null
+                && InvitationResource::currentUserIsFirmOwner())
+            ->authorize(fn (FirmClientInvitation $record): bool => Auth::user()->can('update', $record))
             ->action(function (FirmClientInvitation $record): void {
                 app(FirmInvitationService::class)->resend($record);
 
                 Notification::make()->title('Invitation re-sent')->success()->send();
+            });
+    }
+
+    /**
+     * Revoke a pending invitation. Like the other team actions this is
+     * firm-owner only, enforced by FirmClientInvitationPolicy::delete rather
+     * than merely hidden, and the revoke is written to the audit trail.
+     */
+    private static function revokeAction(): Action
+    {
+        return Action::make('revoke')
+            ->label('Revoke')
+            ->icon('heroicon-m-trash')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Revoke invitation')
+            ->modalDescription('The emailed link stops working immediately.')
+            ->visible(fn (FirmClientInvitation $record): bool => $record->isPending()
+                && InvitationResource::currentUserIsFirmOwner())
+            ->authorize(fn (FirmClientInvitation $record): bool => Auth::user()->can('delete', $record))
+            ->action(function (FirmClientInvitation $record): void {
+                app(FirmInvitationService::class)->revoke($record);
+
+                Notification::make()->title('Invitation revoked')->success()->send();
             });
     }
 }

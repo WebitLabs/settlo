@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AskSettlo\AskSettloController;
 use App\Http\Controllers\CronCommandController;
+use App\Http\Controllers\DummyCheckoutController;
 use App\Http\Controllers\ExpenseReceiptController;
 use App\Http\Controllers\FirmInvitationController;
 use App\Http\Controllers\ImpersonationController;
@@ -17,32 +18,48 @@ Route::get('/', function () {
  * authenticated as the impersonated user; the service restores the original
  * superadmin and returns them to the admin panel.
  */
-Route::middleware('auth')
+Route::middleware(['auth', 'throttle:30,1'])
     ->post('/impersonation/stop', [ImpersonationController::class, 'stop'])
     ->name('impersonation.stop');
 
 /*
  * HTTP-triggerable scheduled commands for serverless deploys where no
- * schedule:run daemon exists. An external cron pinger hits these with the
- * CRON_SECRET bearer token (or ?token= fallback); the controller whitelists
- * the runnable commands and refuses everything when no secret is configured.
+ * schedule:run daemon and no queue worker exist. An external cron pinger (the
+ * `crons` block of vercel.json) hits these with the CRON_SECRET bearer token
+ * or the ?token= fallback; the controller whitelists the runnable commands and
+ * refuses everything when no secret is configured. Besides the four lifecycle
+ * commands this covers `drain-queue` (works queued jobs until empty) and the
+ * idempotent `deploy` step (migrations + reference data).
  */
 Route::middleware('throttle:30,1')
     ->get('/cron/{command}', CronCommandController::class)
     ->whereIn('command', array_keys(CronCommandController::COMMANDS))
     ->name('cron.run');
 
-// Authorised download of a private receipt file (policy-checked in the controller).
-Route::middleware('auth')
+/*
+ * Local checkout of the dummy payment gateway (the controller 404s when Stripe
+ * is bound). Signed, owner-checked.
+ */
+Route::middleware(['auth', 'signed'])
+    ->get('/billing/dummy-checkout/{subscription}', DummyCheckoutController::class)
+    ->name('billing.dummy-checkout');
+
+/*
+ * Authorised download of a private receipt file (policy-checked in the
+ * controller, which also refuses traversal and cross-tenant paths). Throttled
+ * so an authenticated account cannot enumerate or hammer the private disk.
+ */
+Route::middleware(['auth', 'throttle:60,1'])
     ->get('/receipts/{expense}', ExpenseReceiptController::class)
     ->name('receipts.show');
 
 /*
  * A client accepting a firm's invitation. The token is matched by hash and the
  * signed-in owner's email must match the invitation; the controller re-derives
- * the boundary and never trusts the URL.
+ * the boundary and never trusts the URL. Throttled per authenticated client so
+ * the single-use tokens cannot be brute-forced.
  */
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'throttle:20,1'])->group(function () {
     Route::get('/firm-invitations/{token}', [FirmInvitationController::class, 'show'])
         ->name('firm-invitations.accept');
     Route::post('/firm-invitations/{token}', [FirmInvitationController::class, 'store'])
@@ -55,8 +72,10 @@ Route::middleware('auth')->group(function () {
  * have done it. The chat surface is a full Inertia page outside the Filament panel.
  * Every route is throttled per authenticated user (the 'ask-settlo' limiter) so
  * the live-model stream/message turns can't be looped into a runaway cost/DoS.
+ * Like the panels, it needs a verified email; suspended users are rejected in
+ * the controller.
  */
-Route::middleware(['auth', 'throttle:ask-settlo'])
+Route::middleware(['auth', 'verified:filament.app.auth.email-verification.prompt', 'throttle:ask-settlo'])
     ->prefix('ask-settlo/{businessEntity}')
     ->name('ask-settlo.')
     ->group(function () {

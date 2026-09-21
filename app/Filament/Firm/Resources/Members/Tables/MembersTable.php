@@ -4,6 +4,7 @@ namespace App\Filament\Firm\Resources\Members\Tables;
 
 use App\Filament\Firm\Resources\Members\MemberResource;
 use App\Models\AccountingFirmMember;
+use App\Services\Audit\AuditLogger;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
@@ -65,6 +66,12 @@ class MembersTable
 
                 $record->forceFill(['is_owner' => ! $record->is_owner])->save();
 
+                app(AuditLogger::class)->log('firm.member_role_changed', $record, [
+                    'accounting_firm_id' => $record->accounting_firm_id,
+                    'user_id' => $record->user_id,
+                    'is_owner' => (bool) $record->is_owner,
+                ]);
+
                 Notification::make()->title('Role updated')->success()->send();
             });
     }
@@ -101,6 +108,12 @@ class MembersTable
 
                     return;
                 }
+
+                app(AuditLogger::class)->log('firm.member_removed', $record, [
+                    'accounting_firm_id' => $record->accounting_firm_id,
+                    'user_id' => $record->user_id,
+                    'user_email' => $record->user?->email,
+                ]);
 
                 $record->delete();
 

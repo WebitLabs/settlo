@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use App\Enums\BusinessEntityType;
+use App\Enums\PlanFeature;
+use App\Enums\SubscriptionStatus;
+use App\Enums\VatStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +25,7 @@ class BusinessEntity extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'name', 'legal_name', 'type', 'uid', 'mwst_number',
+        'name', 'legal_name', 'type', 'uid', 'mwst_number', 'vat_status', 'estimated_annual_revenue',
         'street', 'street_number', 'city', 'postal_code', 'canton_id',
         'iban', 'default_currency', 'default_payment_term_days',
         'default_language', 'invoice_number_prefix', 'default_invoice_notes', 'logo_url',
@@ -32,6 +35,8 @@ class BusinessEntity extends Model
     {
         return [
             'type' => BusinessEntityType::class,
+            'vat_status' => VatStatus::class,
+            'estimated_annual_revenue' => 'decimal:2',
             'default_payment_term_days' => 'integer',
         ];
     }
@@ -42,16 +47,28 @@ class BusinessEntity extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    /**
+     * The workspace's own subscription (one per business).
+     *
+     * @return HasOne<Subscription, $this>
+     */
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
+    }
+
     /** @return BelongsTo<Canton, $this> */
     public function canton(): BelongsTo
     {
         return $this->belongsTo(Canton::class);
     }
 
-    /** @return HasOne<TaxProfile, $this> */
-    public function taxProfile(): HasOne
+    /**
+     * The owner's personal tax profile (tax profiles belong to the person).
+     */
+    public function ownerTaxProfile(): ?TaxProfile
     {
-        return $this->hasOne(TaxProfile::class);
+        return $this->owner?->taxProfile;
     }
 
     /** @return HasMany<Client, $this> */
@@ -102,5 +119,64 @@ class BusinessEntity extends Model
             ->when($fiscalYear, fn ($q) => $q->where('fiscal_year', $fiscalYear))
             ->latest('calculated_at')
             ->first();
+    }
+
+    /**
+     * Whether invoices of this business may carry Swiss VAT: the business is
+     * registered, or a VAT (MWST) number is on file.
+     */
+    public function isVatRegistered(): bool
+    {
+        return ($this->vat_status?->isRegistered() ?? false) || filled($this->mwst_number);
+    }
+
+    public function isSoleProprietorship(): bool
+    {
+        return $this->type === BusinessEntityType::SoleProprietorship;
+    }
+
+    // Plan gating ---------------------------------------------------------
+
+    /**
+     * The plan features available in this workspace. A trial grants full
+     * Pro-tier features on top of the chosen plan (per spec); a subscription
+     * that does not grant access grants nothing.
+     *
+     * @return list<string>
+     */
+    public function planFeatures(): array
+    {
+        $subscription = $this->subscription;
+
+        if (! $subscription || ! $subscription->grantsAccess()) {
+            return [];
+        }
+
+        $features = $subscription->plan?->features ?? [];
+
+        if ($subscription->status === SubscriptionStatus::Trialing) {
+            $proFeatures = Plan::where('code', 'pro')->value('features') ?? [];
+            $features = array_values(array_unique([...$features, ...$proFeatures]));
+        }
+
+        return $features;
+    }
+
+    public function hasFeature(PlanFeature $feature): bool
+    {
+        if (! config('settlo.enforce_feature_gates', true)) {
+            return $this->canWrite();
+        }
+
+        return in_array($feature->value, $this->planFeatures(), true);
+    }
+
+    /**
+     * Whether the workspace may be written to. An expired/cancelled workspace
+     * is read-only; an incomplete one (checkout pending) is locked.
+     */
+    public function canWrite(): bool
+    {
+        return $this->subscription?->grantsAccess() ?? false;
     }
 }

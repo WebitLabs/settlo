@@ -67,10 +67,11 @@ class BusinessEntityInfolist
                                 ->label('Total tax burden')
                                 ->money('chf')
                                 ->state(fn (BusinessEntity $record): ?float => self::estimation($record)?->total_tax_burden),
-                            TextEntry::make('tax_monthly_reserve')
-                                ->label('Monthly reserve')
+                            TextEntry::make('tax_projected_monthly_reserve')
+                                ->label('Set aside monthly')
+                                ->helperText('One twelfth of the full-year estimate.')
                                 ->money('chf')
-                                ->state(fn (BusinessEntity $record): ?float => self::estimation($record)?->monthly_reserve),
+                                ->state(fn (BusinessEntity $record): ?float => self::estimation($record)?->projected_monthly_reserve),
                             TextEntry::make('tax_vat_pct')
                                 ->label('VAT threshold reached')
                                 ->suffix('%')

@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * An immutable snapshot of a tax calculation. Historical rows are never
  * recalculated in place — a new row is written on each recalculation and the
- * rates used are frozen into rates_snapshot.
+ * rates used are frozen into rates_snapshot. Rows without a business are the
+ * owner's consolidated personal estimate; rows with one are that business'
+ * proportional share.
  */
 class TaxEstimation extends Model
 {
@@ -41,6 +43,7 @@ class TaxEstimation extends Model
             'effective_rate' => 'decimal:2',
             'projected_annual_revenue' => 'decimal:2',
             'projected_total_tax' => 'decimal:2',
+            'projected_monthly_reserve' => 'decimal:2',
             'vat_threshold_pct' => 'decimal:2',
             'vat_crossing_date' => 'date',
             'quellensteuer_regime' => 'boolean',
@@ -53,6 +56,21 @@ class TaxEstimation extends Model
     public function businessEntity(): BelongsTo
     {
         return $this->belongsTo(BusinessEntity::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Whether this is the consolidated personal estimate rather than one
+     * business' share of it.
+     */
+    public function isPersonal(): bool
+    {
+        return $this->business_entity_id === null;
     }
 
     /** @return BelongsTo<Canton, $this> */

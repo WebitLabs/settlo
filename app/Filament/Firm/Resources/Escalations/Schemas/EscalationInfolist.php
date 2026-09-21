@@ -32,7 +32,7 @@ class EscalationInfolist
                 Section::make('Accountant response')
                     ->columns(2)
                     ->schema([
-                        TextEntry::make('accountant.name')
+                        TextEntry::make('accountant_display_name')
                             ->label('Handled by')
                             ->state(fn (AiEscalation $record): ?string => $record->accountant?->getFilamentName())
                             ->placeholder('Unclaimed'),

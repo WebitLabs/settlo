@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class Invoice extends Model
 {
@@ -41,6 +42,7 @@ class Invoice extends Model
             'sent_at' => 'datetime',
             'paid_at' => 'datetime',
             'status_changed_at' => 'datetime',
+            'creditor_vat_registered' => 'boolean',
         ];
     }
 
@@ -50,10 +52,15 @@ class Invoice extends Model
         return $this->belongsTo(BusinessEntity::class);
     }
 
-    /** @return BelongsTo<Client, $this> */
+    /**
+     * Includes trashed clients, so an invoice keeps showing its client's name
+     * after the client is moved to the trash.
+     *
+     * @return BelongsTo<Client, $this>
+     */
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(Client::class)->withTrashed();
     }
 
     /** @return HasMany<InvoiceLineItem, $this> */
@@ -78,10 +85,25 @@ class Invoice extends Model
         ]);
     }
 
+    /**
+     * Issued, unpaid and past its due date. "Past" means strictly before
+     * today: an invoice that is due today is not overdue yet. This is the one
+     * definition of overdue — the query scope, the dashboards and the nightly
+     * `markOverdue` sweep all use the same rule.
+     *
+     * @param  Builder<Invoice>  $query
+     */
+    public function scopeOverdue(Builder $query): void
+    {
+        $query->whereIn('status', array_column(InvoiceStatus::unpaidIssued(), 'value'))
+            ->whereNotNull('due_date')
+            ->whereDate('due_date', '<', Carbon::today()->toDateString());
+    }
+
     public function isOverdue(): bool
     {
-        return $this->status === InvoiceStatus::Sent
+        return in_array($this->status, InvoiceStatus::unpaidIssued(), true)
             && $this->due_date !== null
-            && $this->due_date->isPast();
+            && $this->due_date->startOfDay()->lt(Carbon::today());
     }
 }

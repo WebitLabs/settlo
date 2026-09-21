@@ -59,6 +59,6 @@ class SubscriptionPaymentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['subscription.user', 'plan']);
+        return parent::getEloquentQuery()->with(['subscription.user', 'subscription.businessEntity', 'plan']);
     }
 }

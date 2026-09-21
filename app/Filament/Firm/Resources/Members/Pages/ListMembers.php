@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Filament\Firm\Resources\Members\MemberResource;
 use App\Models\AccountingFirmMember;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
@@ -75,11 +76,17 @@ class ListMembers extends ListRecords
             return;
         }
 
-        AccountingFirmMember::query()->create([
+        $member = AccountingFirmMember::query()->create([
             'accounting_firm_id' => $tenant->getKey(),
             'user_id' => $user->getKey(),
             'is_owner' => false,
             'joined_at' => Carbon::now(),
+        ]);
+
+        app(AuditLogger::class)->log('firm.member_added', $member, [
+            'accounting_firm_id' => $tenant->getKey(),
+            'user_id' => $user->getKey(),
+            'user_email' => $user->email,
         ]);
 
         Notification::make()->title('Team member added')->success()->send();
