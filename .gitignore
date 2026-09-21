@@ -35,4 +35,4 @@ Thumbs.db
 .env*
 
 # Tester guide filled in with the demo accounts' generated passwords.
-/latest_requirements/TESTER_GUIDE.local.md
+/latest_requirements/TESTER_GUIDE.local.*
