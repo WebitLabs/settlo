@@ -11,15 +11,11 @@ declare(strict_types=1);
  * bundled into the function, and the bundle has a hard 250 MB limit that the
  * unpruned SDK pushes it over.
  *
- * Runs only inside a Vercel build (composer install there triggers
- * post-autoload-dump). Local and CI installs keep the full SDK, so nothing a
- * developer does is affected, and the next `composer install` restores
- * everything if this ever needs undoing.
+ * Invoked only by the `vercel` composer script, which the vercel-php runtime
+ * runs during its build phase — its own `composer install` runs with
+ * --no-scripts, so the usual hooks never fire. Local and CI installs keep the
+ * full SDK, and a plain `composer install` restores everything.
  */
-if (getenv('VERCEL') === false && getenv('VERCEL_ENV') === false) {
-    exit(0);
-}
-
 $data = __DIR__.'/../vendor/aws/aws-sdk-php/src/data';
 
 if (! is_dir($data)) {
@@ -60,4 +56,4 @@ foreach (new DirectoryIterator($data) as $entry) {
     rmdir($path);
 }
 
-printf("Pruned unused AWS service models: %.1f MB freed.%s", $removedBytes / 1024 / 1024, PHP_EOL);
+printf('Pruned unused AWS service models: %.1f MB freed.%s', $removedBytes / 1024 / 1024, PHP_EOL);

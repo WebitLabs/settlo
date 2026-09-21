@@ -10,7 +10,7 @@
         "api/index.php": {
             "runtime": "vercel-php@0.8.0",
             "maxDuration": 60,
-            "excludeFiles": "{settlo-specs,tests,latest_requirements,.claude,.planning,node_modules,scripts}/**"
+            "excludeFiles": "{settlo-specs,tests,latest_requirements,.claude,.planning,node_modules}/**"
         }
     },
     "crons": [
