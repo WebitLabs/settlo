@@ -52,7 +52,7 @@ New environment variables (see `.env.example`): `STRIPE_KEY`, `STRIPE_SECRET`, `
 - `SimulatedGateway` is bound only on that explicit config value, never as a fallback; `settlo:renew-subscriptions` renews `dummy` and `simulated` rows.
 - Stripe is untouched behind config: set `SETTLO_PAYMENT_GATEWAY=stripe` plus the keys to restore real Checkout, the billing portal and webhooks.
 
-**Deploy command:** `php artisan settlo:deploy` (or `GET /cron/deploy?token=$CRON_SECRET`) runs migrations, seeds reference data and verifies it landed. `vercel.json` schedules the four lifecycle commands plus the queue drain.
+**Deploy command:** `php artisan settlo:deploy` (or `GET /cron/deploy?token=$CRON_SECRET`) runs migrations, seeds reference data and verifies it landed. `vercel.json` schedules the two daily commands the Vercel Hobby plan allows (trial expiry, overdue invoices); the queue drain, quota resets and renewals need an external pinger against the same `/cron/{command}` endpoints, or a Pro plan.
 
 **Browser tests:** `php artisan test --testsuite=Browser` needs Node on `PATH` and Playwright installed (`npm install playwright && npx playwright install chromium`).
 

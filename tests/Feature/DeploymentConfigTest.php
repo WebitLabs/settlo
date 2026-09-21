@@ -15,11 +15,29 @@ function vercelConfig(): array
     return json_decode((string) file_get_contents(base_path('vercel.json')), true, flags: JSON_THROW_ON_ERROR);
 }
 
-it('schedules every lifecycle command plus the queue drain on the deployment', function (string $command) {
+/**
+ * The Vercel Hobby plan allows at most two cron jobs, at daily granularity, so
+ * only the two that must not be missed are scheduled by the platform. The rest
+ * (quota resets, renewals, the queue drain) run from an external pinger against
+ * the same endpoints — see the cron section of .env.example. On Pro, add them
+ * back here.
+ */
+it('schedules the lifecycle commands the hosting plan allows', function (string $command) {
     $paths = array_column(vercelConfig()['crons'], 'path');
 
     expect($paths)->toContain("/cron/{$command}");
-})->with(['expire-trials', 'reset-quotas', 'renew-subscriptions', 'mark-overdue-invoices', 'drain-queue']);
+})->with(['expire-trials', 'mark-overdue-invoices']);
+
+it('stays within the two daily cron jobs the Hobby plan allows', function () {
+    $crons = vercelConfig()['crons'];
+
+    expect($crons)->toHaveCount(2);
+
+    foreach ($crons as $cron) {
+        // A daily schedule has a fixed minute and hour: "m h * * *".
+        expect($cron['schedule'])->toMatch('/^\d+ \d+ \* \* \*$/');
+    }
+});
 
 it('only schedules paths the cron controller actually accepts', function () {
     foreach (vercelConfig()['crons'] as $cron) {
