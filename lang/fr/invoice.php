@@ -21,4 +21,7 @@ return [
     'payment' => 'Paiement',
     'account' => 'Compte',
     'payable_to' => 'Payable à',
+    'not_vat_registered' => 'Non assujetti à la TVA',
+    'trading_as' => 'Exerçant sous le nom :name',
+    'draft_preview' => 'Brouillon — pas encore émise',
 ];

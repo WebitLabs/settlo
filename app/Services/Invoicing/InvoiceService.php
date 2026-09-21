@@ -6,6 +6,7 @@ use App\Enums\InvoiceStatus;
 use App\Jobs\RecalculateTaxEstimation;
 use App\Models\BusinessEntity;
 use App\Models\Invoice;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -18,7 +19,47 @@ use RuntimeException;
  */
 class InvoiceService
 {
+    /** Attempts to win a unique invoice number when two creates race. */
+    private const int NUMBER_ATTEMPTS = 5;
+
     public function __construct(private readonly QrBillService $qrBill) {}
+
+    /**
+     * Create a draft invoice for the given business. The number is minted and
+     * the row inserted inside one transaction, so the lock taken while reading
+     * the last number is still held when the insert lands; should two creates
+     * still race (a gap the lock cannot cover), the unique violation is
+     * retried with the next number instead of surfacing a 500.
+     *
+     * The tenant, number, currency and status are server-controlled and not
+     * mass-assignable, so a crafted payload cannot forge them.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function createDraft(BusinessEntity $entity, array $attributes): Invoice
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return DB::transaction(function () use ($entity, $attributes): Invoice {
+                    $invoice = new Invoice;
+                    $invoice->fill($attributes);
+                    $invoice->forceFill([
+                        'business_entity_id' => $entity->getKey(),
+                        'currency_code' => $entity->default_currency ?: 'CHF',
+                        'status' => InvoiceStatus::Draft->value,
+                        'invoice_number' => $this->nextInvoiceNumber($entity),
+                    ]);
+                    $invoice->save();
+
+                    return $invoice;
+                });
+            } catch (QueryException $e) {
+                if ($attempt >= self::NUMBER_ATTEMPTS || ! $this->isDuplicateNumber($e)) {
+                    throw $e;
+                }
+            }
+        }
+    }
 
     /**
      * Next per-entity, per-year invoice number (e.g. INV-2026-0001), assigned
@@ -52,25 +93,22 @@ class InvoiceService
      */
     public function recalculateTotals(Invoice $invoice): Invoice
     {
-        $subtotal = '0';
-        $vatTotal = '0';
+        $lines = $invoice->lineItems()->get();
 
-        foreach ($invoice->lineItems()->get() as $line) {
-            $net = $this->round(bcmul((string) $line->quantity, (string) $line->unit_price, 6));
-            $vat = $this->round(bcdiv(bcmul($net, (string) $line->vat_rate, 6), '100', 6));
+        foreach ($lines as $line) {
+            $net = InvoiceTotals::lineNet($line->quantity, $line->unit_price);
 
             if ((string) $line->line_total !== $net) {
                 $line->forceFill(['line_total' => $net])->save();
             }
-
-            $subtotal = bcadd($subtotal, $net, 6);
-            $vatTotal = bcadd($vatTotal, $vat, 6);
         }
 
+        $totals = InvoiceTotals::forLines($lines);
+
         $invoice->forceFill([
-            'subtotal' => $this->round($subtotal),
-            'vat_amount' => $this->round($vatTotal),
-            'total' => $this->round(bcadd($subtotal, $vatTotal, 6)),
+            'subtotal' => $totals['subtotal'],
+            'vat_amount' => $totals['vat'],
+            'total' => $totals['total'],
         ])->save();
 
         return $invoice;
@@ -86,24 +124,7 @@ class InvoiceService
      */
     public function vatBreakdown(Invoice $invoice): array
     {
-        $groups = [];
-
-        foreach ($invoice->lineItems()->get() as $line) {
-            $rate = $this->normalizeRate((string) $line->vat_rate);
-            $net = $this->round(bcmul((string) $line->quantity, (string) $line->unit_price, 6));
-            $vat = $this->round(bcdiv(bcmul($net, (string) $line->vat_rate, 6), '100', 6));
-
-            if (! isset($groups[$rate])) {
-                $groups[$rate] = ['rate' => $rate, 'base' => '0.00', 'vat' => '0.00'];
-            }
-
-            $groups[$rate]['base'] = bcadd($groups[$rate]['base'], $net, 2);
-            $groups[$rate]['vat'] = bcadd($groups[$rate]['vat'], $vat, 2);
-        }
-
-        krsort($groups, SORT_NUMERIC);
-
-        return $groups;
+        return InvoiceTotals::forLines($invoice->lineItems()->get())['breakdown'];
     }
 
     /**
@@ -124,11 +145,21 @@ class InvoiceService
         }
 
         $entity = $invoice->businessEntity()->first();
-        if ($entity === null || blank($entity->iban)) {
-            throw new RuntimeException('The business needs an IBAN before an invoice can be sent.');
+        if ($entity === null) {
+            throw new RuntimeException('The invoice is not attached to a business.');
         }
 
-        $reference = $this->qrBill->generateReference($invoice->invoice_number, $entity->iban);
+        $creditor = InvoiceCreditor::fromEntity($entity);
+
+        if (blank($creditor->iban)) {
+            throw new RuntimeException('The business needs an IBAN — add a default bank account or an IBAN in your invoicing settings — before an invoice can be sent.');
+        }
+
+        if (! $entity->isVatRegistered() && bccomp((string) $invoice->vat_amount, '0', 2) > 0) {
+            throw new RuntimeException('Your business is not VAT-registered — remove VAT from the line items before sending.');
+        }
+
+        $reference = $this->qrBill->generateReference($invoice->invoice_number, $creditor->iban);
 
         $now = Carbon::now();
         $invoice->forceFill([
@@ -136,12 +167,7 @@ class InvoiceService
             'sent_at' => $now,
             'status_changed_at' => $now,
             'qr_reference' => $reference,
-            'creditor_iban' => preg_replace('/\s+/', '', (string) $entity->iban),
-            'creditor_name' => $entity->legal_name ?: $entity->name,
-            'creditor_street' => trim("{$entity->street} {$entity->street_number}") ?: null,
-            'creditor_city' => $entity->city,
-            'creditor_postal' => $entity->postal_code,
-            'creditor_country' => 'CH',
+            ...$creditor->toSnapshot(),
         ])->save();
 
         RecalculateTaxEstimation::dispatch($entity->getKey());
@@ -206,15 +232,16 @@ class InvoiceService
     }
 
     /**
-     * Flip every past-due Sent invoice to Overdue. Revenue is unaffected (both
-     * statuses count), so no tax recalculation is triggered. Returns the count.
+     * Flip every past-due Sent invoice to Overdue — an invoice due today is
+     * not overdue yet (see {@see Invoice::scopeOverdue()}). Revenue is
+     * unaffected (both statuses count), so no tax recalculation is triggered.
+     * Returns the count.
      */
     public function markOverdue(): int
     {
         return Invoice::query()
+            ->overdue()
             ->where('status', InvoiceStatus::Sent->value)
-            ->whereNotNull('due_date')
-            ->whereDate('due_date', '<', Carbon::now()->toDateString())
             ->update([
                 'status' => InvoiceStatus::Overdue->value,
                 'status_changed_at' => Carbon::now(),
@@ -222,25 +249,11 @@ class InvoiceService
     }
 
     /**
-     * Normalise a VAT rate to a compact display string for grouping keys
-     * (e.g. "8.10" → "8.1", "0.00" → "0").
+     * Whether the failure is the per-business invoice number unique index
+     * (PostgreSQL 23505 / MySQL 23000) rather than a real error.
      */
-    private function normalizeRate(string $rate): string
+    private function isDuplicateNumber(QueryException $e): bool
     {
-        $trimmed = rtrim(rtrim(number_format((float) $rate, 2, '.', ''), '0'), '.');
-
-        return $trimmed === '' ? '0' : $trimmed;
-    }
-
-    /**
-     * Round a BCMath decimal string to CHF 0.01, half away from zero.
-     */
-    private function round(string $value, int $scale = 2): string
-    {
-        $factor = bcpow('10', (string) $scale);
-        $shifted = bcmul($value, $factor, 1);
-        $adjust = str_starts_with($value, '-') ? '-0.5' : '0.5';
-
-        return bcdiv(bcadd($shifted, $adjust, 0), $factor, $scale);
+        return in_array((string) $e->getCode(), ['23505', '23000'], true);
     }
 }

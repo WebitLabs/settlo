@@ -54,24 +54,27 @@ class QrBillService
 
     /**
      * Build a validated QrBill from a sent invoice's frozen creditor snapshot,
-     * or null if the data cannot form a valid Swiss QR bill.
+     * or null if the data cannot form a valid Swiss QR bill. A draft preview
+     * may pass the live creditor explicitly.
      */
-    public function buildFor(Invoice $invoice): ?QrBill
+    public function buildFor(Invoice $invoice, ?InvoiceCreditor $creditor = null): ?QrBill
     {
+        $creditor ??= InvoiceCreditor::for($invoice);
+
         try {
             $qrBill = QrBill::create();
 
             $qrBill->setCreditor(StructuredAddress::createWithStreet(
-                mb_substr((string) ($invoice->creditor_name ?: 'Creditor'), 0, 70),
-                mb_substr((string) ($invoice->creditor_street ?: 'n/a'), 0, 70),
+                mb_substr((string) ($creditor->name ?: 'Creditor'), 0, 70),
+                mb_substr((string) ($creditor->street ?: 'n/a'), 0, 70),
                 null,
-                mb_substr((string) $invoice->creditor_postal, 0, 16),
-                mb_substr((string) $invoice->creditor_city, 0, 35),
-                $invoice->creditor_country ?: 'CH',
+                mb_substr((string) $creditor->postalCode, 0, 16),
+                mb_substr((string) $creditor->city, 0, 35),
+                $creditor->country ?: 'CH',
             ));
 
             $qrBill->setCreditorInformation(CreditorInformation::create(
-                preg_replace('/\s+/', '', (string) $invoice->creditor_iban) ?? '',
+                preg_replace('/\s+/', '', (string) $creditor->iban) ?? '',
             ));
 
             $qrBill->setPaymentAmountInformation(PaymentAmountInformation::create(
@@ -79,10 +82,10 @@ class QrBillService
                 (float) $invoice->total,
             ));
 
-            if (! empty($invoice->qr_reference)) {
+            if (filled($creditor->reference)) {
                 $qrBill->setPaymentReference(PaymentReference::create(
-                    $this->referenceType($invoice->creditor_iban),
-                    $invoice->qr_reference,
+                    $this->referenceType($creditor->iban),
+                    $creditor->reference,
                 ));
             }
 
@@ -107,9 +110,9 @@ class QrBillService
     /**
      * The Swiss payment part as embeddable HTML, or null if it can't be built.
      */
-    public function paymentPartHtml(Invoice $invoice, string $language = 'en'): ?string
+    public function paymentPartHtml(Invoice $invoice, string $language = 'en', ?InvoiceCreditor $creditor = null): ?string
     {
-        $qrBill = $this->buildFor($invoice);
+        $qrBill = $this->buildFor($invoice, $creditor);
         if ($qrBill === null) {
             return null;
         }
@@ -128,9 +131,9 @@ class QrBillService
     /**
      * The QR code alone as an SVG data URI, or null if it can't be built.
      */
-    public function qrCodeDataUri(Invoice $invoice): ?string
+    public function qrCodeDataUri(Invoice $invoice, ?InvoiceCreditor $creditor = null): ?string
     {
-        $qrBill = $this->buildFor($invoice);
+        $qrBill = $this->buildFor($invoice, $creditor);
         if ($qrBill === null) {
             return null;
         }

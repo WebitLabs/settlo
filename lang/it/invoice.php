@@ -21,4 +21,7 @@ return [
     'payment' => 'Pagamento',
     'account' => 'Conto',
     'payable_to' => 'Pagabile a',
+    'not_vat_registered' => 'Non assoggettato all\'IVA',
+    'trading_as' => 'Operante come :name',
+    'draft_preview' => 'Bozza — non ancora emessa',
 ];

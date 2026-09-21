@@ -1,6 +1,9 @@
 @php
     /** @var \App\Models\Invoice $invoice */
-    $money = fn ($v) => number_format((float) $v, 2, '.', "'");
+    /** @var \App\Services\Invoicing\InvoiceCreditor $creditor */
+    use App\Support\Money;
+
+    $money = fn ($v) => Money::number($v);
     $date = fn ($d) => $d?->format('d.m.Y') ?? '';
 @endphp
 <!DOCTYPE html>
@@ -15,10 +18,13 @@
         .col-left { float: left; width: 50%; }
         .col-right { float: right; width: 45%; text-align: right; }
         h1 { color: #00A878; font-size: 26px; margin: 0 0 4px; }
+        .logo { max-height: 64px; max-width: 220px; margin-bottom: 8px; }
         .muted { color: #6b7280; }
         .meta td { padding: 2px 0; }
         .parties { margin-top: 28px; }
         .party-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; margin-bottom: 4px; }
+        .draft-banner { border: 1px dashed #b45309; color: #b45309; padding: 8px 12px; margin-bottom: 20px;
+            font-size: 11px; text-transform: uppercase; letter-spacing: .08em; text-align: center; }
         table.items { width: 100%; border-collapse: collapse; margin-top: 28px; }
         table.items th { background: #00A878; color: #fff; text-align: left; padding: 8px; font-size: 11px; }
         table.items th.num, table.items td.num { text-align: right; }
@@ -41,14 +47,22 @@
 </head>
 <body>
 <div class="wrap">
+    @if ($isDraft)
+        <div class="draft-banner">{{ __('invoice.draft_preview') }}</div>
+    @endif
+
     <div class="row">
         <div class="col-left">
-            <h1>{{ $entity?->name }}</h1>
+            @if ($logo)
+                <img class="logo" src="{{ $logo }}" alt="{{ $creditor->name }}">
+            @endif
+            <h1>{{ $creditor->name }}</h1>
             <div class="muted">
-                {{ $entity?->legal_name }}<br>
-                {{ trim(($entity?->street ?? '').' '.($entity?->street_number ?? '')) }}<br>
-                {{ $entity?->postal_code }} {{ $entity?->city }}<br>
-                @if ($entity?->uid){{ $entity->uid }}@endif
+                @if (filled($creditor->legalName) && $creditor->legalName !== $creditor->name){{ __('invoice.trading_as', ['name' => $creditor->legalName]) }}<br>@endif
+                {{ $creditor->street }}<br>
+                {{ $creditor->postalCode }} {{ $creditor->city }}<br>
+                @if ($creditor->uid){{ $creditor->uid }}<br>@endif
+                @if ($vatRegistered && filled($creditor->vatNumber)){{ $creditor->vatNumber }}@endif
             </div>
         </div>
         <div class="col-right">
@@ -81,7 +95,9 @@
                 <th>{{ __('invoice.description') }}</th>
                 <th class="num">{{ __('invoice.qty') }}</th>
                 <th class="num">{{ __('invoice.unit_price') }}</th>
-                <th class="num">{{ __('invoice.vat_percent') }}</th>
+                @if ($vatRegistered)
+                    <th class="num">{{ __('invoice.vat_percent') }}</th>
+                @endif
                 <th class="num">{{ __('invoice.amount') }}</th>
             </tr>
         </thead>
@@ -89,16 +105,18 @@
             @foreach ($invoice->lineItems as $line)
                 <tr>
                     <td>{{ $line->description }}</td>
-                    <td class="num">{{ rtrim(rtrim(number_format((float) $line->quantity, 2, '.', "'"), '0'), '.') }}</td>
+                    <td class="num">{{ Money::trimmed($line->quantity) }}</td>
                     <td class="num">{{ $money($line->unit_price) }}</td>
-                    <td class="num">{{ rtrim(rtrim(number_format((float) $line->vat_rate, 2, '.', ''), '0'), '.') }}</td>
+                    @if ($vatRegistered)
+                        <td class="num">{{ Money::trimmed($line->vat_rate) }}</td>
+                    @endif
                     <td class="num">{{ $money($line->line_total) }}</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
 
-    @if (count($vatBreakdown) > 1 || (count($vatBreakdown) === 1 && ! array_key_exists('0', $vatBreakdown)))
+    @if ($vatRegistered && (count($vatBreakdown) > 1 || (count($vatBreakdown) === 1 && ! array_key_exists('0', $vatBreakdown))))
         <table class="vat-break">
             <thead>
                 <tr>
@@ -121,8 +139,13 @@
 
     <table class="totals">
         <tr><td class="muted">{{ __('invoice.subtotal') }}</td><td style="text-align:right">{{ $money($invoice->subtotal) }} {{ $invoice->currency_code }}</td></tr>
-        <tr><td class="muted">{{ __('invoice.vat') }}</td><td style="text-align:right">{{ $money($invoice->vat_amount) }} {{ $invoice->currency_code }}</td></tr>
+        @if ($vatRegistered)
+            <tr><td class="muted">{{ __('invoice.vat') }}</td><td style="text-align:right">{{ $money($invoice->vat_amount) }} {{ $invoice->currency_code }}</td></tr>
+        @endif
         <tr class="grand"><td>{{ __('invoice.total') }}</td><td style="text-align:right">{{ $money($invoice->total) }} {{ $invoice->currency_code }}</td></tr>
+        @unless ($vatRegistered)
+            <tr><td colspan="2" class="muted" style="text-align:right">{{ __('invoice.not_vat_registered') }}</td></tr>
+        @endunless
     </table>
 
     @if ($invoice->notes)
@@ -131,13 +154,13 @@
 
     @if ($paymentPart)
         <div class="payment-part">{!! $paymentPart !!}</div>
-    @elseif ($invoice->qr_reference)
+    @elseif ($creditor->reference)
         <div class="fallback">
             <div class="party-label">{{ __('invoice.payment') }}</div>
             <table>
-                <tr><td class="muted">{{ __('invoice.account') }}</td><td>{{ $invoice->creditor_iban }}</td></tr>
-                <tr><td class="muted">{{ __('invoice.payable_to') }}</td><td>{{ $invoice->creditor_name }}</td></tr>
-                <tr><td class="muted">{{ __('invoice.reference') }}</td><td>{{ $invoice->qr_reference }}</td></tr>
+                <tr><td class="muted">{{ __('invoice.account') }}</td><td>{{ $creditor->iban }}</td></tr>
+                <tr><td class="muted">{{ __('invoice.payable_to') }}</td><td>{{ $creditor->name }}</td></tr>
+                <tr><td class="muted">{{ __('invoice.reference') }}</td><td>{{ $creditor->reference }}</td></tr>
                 <tr><td class="muted">{{ __('invoice.amount') }}</td><td>{{ $money($invoice->total) }} {{ $invoice->currency_code }}</td></tr>
             </table>
         </div>

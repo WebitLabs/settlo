@@ -21,4 +21,7 @@ return [
     'payment' => 'Payment',
     'account' => 'Account',
     'payable_to' => 'Payable to',
+    'not_vat_registered' => 'Not subject to VAT',
+    'trading_as' => 'Trading as :name',
+    'draft_preview' => 'Draft preview — not yet issued',
 ];

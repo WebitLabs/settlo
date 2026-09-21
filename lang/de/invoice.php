@@ -21,4 +21,7 @@ return [
     'payment' => 'Zahlung',
     'account' => 'Konto',
     'payable_to' => 'Zahlbar an',
+    'not_vat_registered' => 'Nicht mehrwertsteuerpflichtig',
+    'trading_as' => 'Handelnd als :name',
+    'draft_preview' => 'Entwurf — noch nicht versendet',
 ];

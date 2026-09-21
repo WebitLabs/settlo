@@ -41,4 +41,15 @@ enum InvoiceStatus: string implements HasColor, HasLabel
     {
         return $this === self::Draft;
     }
+
+    /**
+     * Statuses of an invoice that has been issued and is still unpaid — the
+     * only ones that can become overdue.
+     *
+     * @return list<self>
+     */
+    public static function unpaidIssued(): array
+    {
+        return [self::Sent, self::Overdue];
+    }
 }
