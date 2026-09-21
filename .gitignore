@@ -19,6 +19,14 @@
 /storage/*.key
 /storage/pail
 /vendor
+# Exception: Filament ships its panel theme as source CSS, and
+# resources/css/filament/theme.css imports it. Vercel's build image has no PHP,
+# so `composer install` cannot run before `npm run build` there — without these
+# files tracked, every build from git fails to resolve the import.
+# tests/Feature/FilamentThemeAssetsTest.php fails if they drift from the
+# installed package, so a Filament upgrade cannot break the deploy silently.
+!/vendor/filament/*/resources/css/**
+!/vendor/filament/*/dist/**/*.css
 _ide_helper.php
 Homestead.json
 Homestead.yaml
