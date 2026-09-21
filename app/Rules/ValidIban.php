@@ -6,8 +6,9 @@ use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
- * Validates a Swiss (CH) or Liechtenstein (LI) IBAN: correct country code,
- * 21-character length, and a passing ISO 7064 mod-97 checksum. Used both as a
+ * Validates a Swiss (CH) or Liechtenstein (LI) IBAN per ISO 13616: country
+ * code, 2 check digits, a 5-digit bank code and a 12-character alphanumeric
+ * account part (21 characters in all), with a passing ISO 7064 mod-97 checksum. Used both as a
  * Filament/validator rule and, via the static helper, in server-side code.
  */
 class ValidIban implements ValidationRule
@@ -23,7 +24,7 @@ class ValidIban implements ValidationRule
     {
         $normalized = self::normalize($iban);
 
-        if (preg_match('/^(CH|LI)\d{19}$/', $normalized) !== 1) {
+        if (preg_match('/^(CH|LI)\d{7}[A-Z0-9]{12}$/', $normalized) !== 1) {
             return false;
         }
 
@@ -37,6 +38,21 @@ class ValidIban implements ValidationRule
     public static function normalize(string $iban): string
     {
         return strtoupper((string) preg_replace('/\s+/', '', $iban));
+    }
+
+    /**
+     * Human-readable IBAN: normalized and grouped in blocks of four
+     * ("CH93 0076 2011 6238 5295 7"). An empty IBAN stays empty.
+     */
+    public static function format(string $iban): string
+    {
+        $normalized = self::normalize($iban);
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        return implode(' ', str_split($normalized, 4));
     }
 
     /**
