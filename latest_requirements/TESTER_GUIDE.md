@@ -4,7 +4,7 @@
 **Build:** `1122dc4`, deployed 2026-09-21
 **Contains:** the September 2026 feedback round (BUG-01…59 and the restructuring email), plus a full gap round.
 
-> **Passwords are not in this file.** They were generated when the demo accounts were seeded and are kept in `TESTER_GUIDE.local.md` (untracked) and in the team password manager. Send them to each tester directly.
+> **This file holds the demo passwords.** They belong to three throwaway demo accounts on a test environment and are rotatable — re-running the demo seeder issues a fresh set. Still, don't post the file publicly.
 
 ---
 
@@ -14,11 +14,13 @@ Log in at the panel URL for the role. All three accounts are demo fixtures with 
 
 | Role | Where | Email | Password |
 |---|---|---|---|
-| **Business owner** (Anna Müller) | https://settlo-one.vercel.app/app | `anna@test.ch` | *shared separately* |
-| **Accountant** (Maria Schneider, Müller Treuhand AG) | https://settlo-one.vercel.app/firm | `maria@test.ch` | *shared separately* |
-| **Platform admin** | https://settlo-one.vercel.app/admin | `admin@settlo.ch` | *shared separately* |
+| **Business owner** (Anna Müller) | https://settlo-one.vercel.app/app | `anna@test.ch` | `Q2V3{kcnpje[[:tA&]tS/U^a` |
+| **Accountant** (Maria Schneider, Müller Treuhand AG) | https://settlo-one.vercel.app/firm | `maria@test.ch` | `bePts3q;Bo!qS{3DT0SE\fB0` |
+| **Platform admin** | https://settlo-one.vercel.app/admin | `admin@settlo.ch` | `QZPEujt0ZqKBc1vRT(f6<K}(` |
 
-Copy the passwords exactly — they contain punctuation, and a trailing space is easy to catch by accident. To re-issue them, run the demo seeder again; it prints a fresh set once.
+Copy the passwords exactly — they contain punctuation, and a trailing space is easy to catch by accident.
+
+Use **`https://settlo-one.vercel.app`** and nothing else: build-specific addresses (`settlo-<hash>-dmi92.vercel.app`) sit behind a Vercel login and freeze to a single build, so testers on those would be locked out or testing old code.
 
 **Registering your own account works**, but the verification email cannot be delivered yet (no mail provider is configured), so you would be stuck on the "verify your email" screen. Use the accounts above until that's set up.
 

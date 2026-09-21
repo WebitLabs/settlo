@@ -34,5 +34,3 @@ Thumbs.db
 .vercel
 .env*
 
-# Tester guide filled in with the demo accounts' generated passwords.
-/latest_requirements/TESTER_GUIDE.local.*
