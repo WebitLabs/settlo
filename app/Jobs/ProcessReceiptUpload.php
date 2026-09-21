@@ -18,6 +18,17 @@ class ProcessReceiptUpload implements ShouldQueue
 
     public int $tries = 3;
 
+    /**
+     * The extraction call is sized to finish in ~40s worst case (see
+     * config/services.php), so 55s leaves room for the download and the write
+     * while still fitting a 60s serverless execution budget.
+     */
+    public int $timeout = 55;
+
+    public bool $failOnTimeout = true;
+
+    public int $maxExceptions = 2;
+
     /** @var array<int, int> */
     public array $backoff = [10, 30, 60];
 

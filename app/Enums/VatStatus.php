@@ -22,6 +22,18 @@ enum VatStatus: string implements HasColor, HasLabel
         };
     }
 
+    /**
+     * Compact label for tight UI such as the Ask Settlo context pills.
+     */
+    public function getShortLabel(): string
+    {
+        return match ($this) {
+            self::NotRegistered => 'Not registered',
+            self::RegisteredVoluntary, self::RegisteredMandatory => 'Registered',
+            self::Exempt => 'Exempt',
+        };
+    }
+
     public function getColor(): string|array|null
     {
         return match ($this) {

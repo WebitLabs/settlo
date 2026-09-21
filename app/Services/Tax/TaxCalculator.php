@@ -60,6 +60,9 @@ class TaxCalculator
             eoContribution: $this->round($core['eo']),
             totalSocialInsurance: $this->round($core['totalSI']),
             ahvDeduction: $this->round($core['ahvDeduction']),
+            pillar3aDeduction: $this->round($core['pillar3a']),
+            childDeduction: $this->round($core['childDeduction']),
+            minimumContributionApplied: $core['minimumApplied'],
             taxableIncome: $this->round($core['taxable']),
             federalTax: $this->round($core['federalTax']),
             cantonalTax: $this->round($core['cantonalSimple']),
@@ -71,7 +74,8 @@ class TaxCalculator
             effectiveRate: $this->roundRate($core['effectiveRate']),
             projectedAnnualRevenue: $this->round($projectedRevenue),
             projectedTotalTax: $this->round($projectedTotalTax),
-            lossYear: bccomp($core['net'], '0', self::SCALE) < 0,
+            projectedMonthlyReserve: $this->round(bcdiv($projectedTotalTax, '12', self::SCALE)),
+            lossYear: $core['lossYear'],
             ageExemptionApplied: $core['ageExemption'],
             ratesSnapshot: [
                 'canton_code' => $input->cantonCode,
@@ -83,7 +87,18 @@ class TaxCalculator
                 'ahv_rate' => (float) $si->ahv_rate,
                 'iv_rate' => (float) $si->iv_rate,
                 'eo_rate' => (float) $si->eo_rate,
-                'pillar3a_max' => $input->hasPillar2 ? (int) $si->pillar3a_max_with_p2 : (int) $si->pillar3a_max_se,
+                'pillar3a_max' => $this->round($core['pillar3aCap']),
+                'ahv_minimum' => (float) $si->ahv_minimum,
+                'age_exemption_amount' => (float) $si->age_exemption_amount,
+                'deductions' => [
+                    'ahv' => $this->round($core['ahvDeduction']),
+                    'pillar3a' => $this->round($core['pillar3a']),
+                    'children' => $this->round($core['childDeduction']),
+                    'other_income' => $this->round((string) $input->otherIncome),
+                    'minimum_contribution_applied' => $core['minimumApplied'],
+                    'loss_year' => $core['lossYear'],
+                    'age_exemption_applied' => $core['ageExemption'],
+                ],
             ],
         );
     }
@@ -122,17 +137,29 @@ class TaxCalculator
         $eo = $this->pct($ahvBase, (string) $si->eo_rate);
         $totalSI = bcadd(bcadd($ahv, $iv, self::SCALE), $eo, self::SCALE);
 
-        // Minimum contribution when self-employment produces income.
-        if (bccomp($netForAhv, '0', self::SCALE) > 0
+        // Every self-employed person owes at least the annual minimum contribution
+        // (CHF 514) — also at zero revenue and in a loss year — unless their whole
+        // AHV base is covered by the age-65 exemption. The minimum is apportioned
+        // across AHV/IV/EO by rate weight so the parts always add up to the total
+        // that is charged.
+        $fullyAgeExempt = $ageExemption && bccomp($ahvBase, '0', self::SCALE) <= 0;
+        $minimumApplied = false;
+
+        if (! $fullyAgeExempt
             && bccomp($totalSI, (string) $si->ahv_minimum, self::SCALE) < 0) {
+            $rateSum = bcadd(bcadd((string) $si->ahv_rate, (string) $si->iv_rate, self::SCALE), (string) $si->eo_rate, self::SCALE);
+            $ahv = bcdiv(bcmul((string) $si->ahv_minimum, (string) $si->ahv_rate, self::SCALE), $rateSum, self::SCALE);
+            $iv = bcdiv(bcmul((string) $si->ahv_minimum, (string) $si->iv_rate, self::SCALE), $rateSum, self::SCALE);
+            $eo = bcsub(bcsub((string) $si->ahv_minimum, $ahv, self::SCALE), $iv, self::SCALE);
             $totalSI = (string) $si->ahv_minimum;
+            $minimumApplied = true;
         }
 
-        // Only 50% of AHV (not IV/EO) is deductible from taxable income.
+        // Only 50% of the AHV actually charged (not IV/EO) is deductible from taxable income.
         $ahvDeduction = bcmul($ahv, '0.5', self::SCALE);
 
         // Step 3 — taxable income.
-        $pillar3aCap = $input->hasPillar2 ? (string) $si->pillar3a_max_with_p2 : (string) $si->pillar3a_max_se;
+        $pillar3aCap = $this->pillar3aCap($input->hasPillar2, $netForAhv, $si);
         $pillar3a = bccomp((string) $input->pillar3aAmount, $pillar3aCap, self::SCALE) > 0
             ? $pillar3aCap
             : (string) $input->pillar3aAmount;
@@ -165,11 +192,31 @@ class TaxCalculator
             ? bcmul(bcdiv($totalTax, $grossRevenue, self::SCALE), '100', self::SCALE)
             : '0';
 
+        $lossYear = bccomp($net, '0', self::SCALE) < 0;
+
         return compact(
-            'net', 'ahv', 'iv', 'eo', 'totalSI', 'ahvDeduction', 'taxable',
+            'net', 'ahv', 'iv', 'eo', 'totalSI', 'ahvDeduction', 'pillar3a', 'pillar3aCap', 'childDeduction', 'minimumApplied', 'taxable',
             'federalTax', 'cantonalSimple', 'communalTax', 'churchTax',
-            'totalIncomeTax', 'totalTax', 'effectiveRate', 'ageExemption',
+            'totalIncomeTax', 'totalTax', 'effectiveRate', 'ageExemption', 'lossYear',
         );
+    }
+
+    /**
+     * Deductible Pillar 3a maximum. With a pension fund (Pillar 2) the small
+     * cap applies. Without one, the self-employed may deduct up to 20 % of
+     * their net earned income, but no more than the large cap.
+     */
+    private function pillar3aCap(bool $hasPillar2, string $netEarnedIncome, SocialInsuranceRate $si): string
+    {
+        if ($hasPillar2) {
+            return (string) $si->pillar3a_max_with_p2;
+        }
+
+        $incomeCap = $this->pct($netEarnedIncome, RateRepository::PILLAR_3A_SELF_EMPLOYED_INCOME_PERCENT);
+
+        return bccomp($incomeCap, (string) $si->pillar3a_max_se, self::SCALE) < 0
+            ? $incomeCap
+            : (string) $si->pillar3a_max_se;
     }
 
     private function federalTax(string $income, string $tariff, int $year): string

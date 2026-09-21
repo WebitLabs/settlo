@@ -3,9 +3,11 @@
 namespace App\Enums;
 
 use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
+use Filament\Support\Icons\Heroicon;
 
-enum ExpenseStatus: string implements HasColor, HasLabel
+enum ExpenseStatus: string implements HasColor, HasIcon, HasLabel
 {
     case PendingReview = 'pending_review';
     case Reviewed = 'reviewed';
@@ -14,7 +16,7 @@ enum ExpenseStatus: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::PendingReview => 'Review needed',
+            self::PendingReview => 'Awaiting confirmation',
             self::Reviewed => 'Confirmed',
             self::Flagged => 'Flagged',
         };
@@ -26,6 +28,15 @@ enum ExpenseStatus: string implements HasColor, HasLabel
             self::PendingReview => 'warning',
             self::Reviewed => 'success',
             self::Flagged => 'danger',
+        };
+    }
+
+    public function getIcon(): Heroicon
+    {
+        return match ($this) {
+            self::PendingReview => Heroicon::OutlinedClock,
+            self::Reviewed => Heroicon::OutlinedCheckCircle,
+            self::Flagged => Heroicon::OutlinedFlag,
         };
     }
 

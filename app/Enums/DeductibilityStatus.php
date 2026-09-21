@@ -18,7 +18,7 @@ enum DeductibilityStatus: string implements HasColor, HasLabel
             self::FullyDeductible => '100% deductible',
             self::PartiallyDeductible => 'Partially deductible',
             self::NotDeductible => 'Not deductible',
-            self::Uncertain => 'Review needed',
+            self::Uncertain => 'Deductibility unclear',
         };
     }
 
@@ -28,7 +28,7 @@ enum DeductibilityStatus: string implements HasColor, HasLabel
             self::FullyDeductible => 'success',
             self::PartiallyDeductible => 'warning',
             self::NotDeductible => 'gray',
-            self::Uncertain => 'warning',
+            self::Uncertain => 'gray',
         };
     }
 

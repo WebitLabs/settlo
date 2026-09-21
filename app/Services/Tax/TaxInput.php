@@ -21,7 +21,7 @@ final readonly class TaxInput
         public float $pillar3aAmount = 0.0,
         public bool $hasPillar2 = false,
         public bool $kirchensteuer = false,
-        public ResidencePermit $residencePermit = ResidencePermit::SwissOrCPermit,
+        public ResidencePermit $residencePermit = ResidencePermit::SwissCitizen,
         public ?int $age = null,
         public float $otherIncome = 0.0,
         /** Communal multiplier (Steuerfuss) as a percentage, e.g. 119. Null = canton default. */
