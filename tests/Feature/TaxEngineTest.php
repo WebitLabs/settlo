@@ -433,3 +433,25 @@ it('surfaces the loss-year and age-exemption flags on the stored snapshot', func
         ->and($deductions['minimum_contribution_applied'])->toBeFalse()
         ->and((float) $personal->total_social_insurance)->toBe(0.0);
 });
+
+it('stores an effective rate above 100 % when the minimum AHV dwarfs revenue', function () {
+    // decimal(6,2) used to cap these at 9999.99, which Postgres rejects and
+    // SQLite silently accepts — the demo seed hit it on the deployed database.
+    $owner = User::factory()->owner()->create();
+    TaxProfile::factory()->forCanton('ZH')->for($owner)->create(['birth_year' => 1990]);
+    $entity = BusinessEntity::factory()->forCanton('ZH')->for($owner, 'owner')->create();
+
+    Invoice::factory()->for($entity, 'businessEntity')->create([
+        'status' => InvoiceStatus::Sent,
+        'subtotal' => 5,
+        'vat_amount' => 0,
+        'total' => 5,
+        'issue_date' => now()->startOfYear()->addDay()->toDateString(),
+    ]);
+
+    $estimation = app(TaxEngine::class)->estimateFor($entity);
+
+    // CHF 514 of AHV on CHF 5 of revenue is an effective rate in the thousands.
+    expect((float) $estimation->effective_rate)->toBeGreaterThan(1000.0)
+        ->and((float) $estimation->fresh()->effective_rate)->toBeGreaterThan(1000.0);
+});
