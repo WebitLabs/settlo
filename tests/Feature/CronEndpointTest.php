@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CronCommandController;
 use App\Models\Canton;
 use Illuminate\Support\Facades\Artisan;
 
@@ -82,7 +83,31 @@ it('answers with a server error when the command itself fails', function () {
         ->with('settlo:expire-trials')
         ->andReturn(1);
 
+    // The response carries the command's output so the failure is diagnosable.
+    Artisan::shouldReceive('output')
+        ->once()
+        ->andReturn('Something went wrong.');
+
     $this->getJson('/cron/expire-trials?token=test-secret')
         ->assertStatus(500)
         ->assertJson(['exit_code' => 1]);
+});
+
+it('returns the command output so a failure and the demo passwords are visible', function () {
+    config(['cron.secret' => 'test-secret']);
+
+    $response = $this->withHeader('Authorization', 'Bearer test-secret')
+        ->getJson('/cron/expire-trials');
+
+    $response->assertOk()->assertJsonStructure(['command', 'exit_code', 'duration_ms', 'output']);
+});
+
+it('can seed the demo fixtures on a deployed environment', function () {
+    config(['cron.secret' => 'test-secret']);
+
+    // The endpoint forces the seeder, so a test environment needs no extra flag.
+    expect(CronCommandController::COMMANDS)
+        ->toHaveKey('seed-demo')
+        ->and(CronCommandController::COMMANDS['seed-demo'])
+        ->toContain('--force');
 });

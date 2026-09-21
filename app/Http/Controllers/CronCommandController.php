@@ -25,6 +25,10 @@ class CronCommandController
         'drain-queue' => 'settlo:drain-queue',
         // Post-deploy migrations + reference data (idempotent).
         'deploy' => 'settlo:deploy',
+        // Demo fixtures for a test environment. Re-running only rewrites the
+        // demo records themselves, and prints the generated passwords once —
+        // they are in the response body, so call it over HTTPS only.
+        'seed-demo' => 'settlo:seed-demo --force',
     ];
 
     public function __invoke(Request $request, string $command): JsonResponse
@@ -57,6 +61,9 @@ class CronCommandController
             'command' => $artisanCommand,
             'exit_code' => $exitCode,
             'duration_ms' => $durationMs,
+            // Without the output a failure says nothing about what went wrong,
+            // and the demo seeder's generated passwords are shown only here.
+            'output' => trim(Artisan::output()),
         ], $exitCode === 0 ? 200 : 500);
     }
 }
