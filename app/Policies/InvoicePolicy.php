@@ -6,6 +6,7 @@ use App\Enums\InvoiceStatus;
 use App\Models\BusinessEntity;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Policies\Concerns\ChecksWorkspaceAccess;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -17,6 +18,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class InvoicePolicy
 {
+    use ChecksWorkspaceAccess;
+
     public function viewAny(User $user): bool
     {
         return $user->isOwner() || $user->isAccountant();
@@ -30,13 +33,12 @@ class InvoicePolicy
 
     public function create(User $user): bool
     {
-        return $user->isOwner() && $user->canWrite();
+        return $this->canCreateInCurrentWorkspace($user);
     }
 
     public function update(User $user, Invoice $invoice): bool
     {
-        return $this->owns($user, $invoice)
-            && $user->canWrite()
+        return $this->canWriteIn($user, $invoice->business_entity_id)
             && $invoice->status->isEditable();
     }
 
@@ -46,9 +48,27 @@ class InvoicePolicy
             && $invoice->status === InvoiceStatus::Draft;
     }
 
+    public function send(User $user, Invoice $invoice): bool
+    {
+        return $this->canWriteIn($user, $invoice->business_entity_id)
+            && $invoice->status === InvoiceStatus::Draft;
+    }
+
+    public function markPaid(User $user, Invoice $invoice): bool
+    {
+        return $this->canWriteIn($user, $invoice->business_entity_id)
+            && in_array($invoice->status, [InvoiceStatus::Sent, InvoiceStatus::Overdue], true);
+    }
+
+    public function cancel(User $user, Invoice $invoice): bool
+    {
+        return $this->canWriteIn($user, $invoice->business_entity_id)
+            && ! in_array($invoice->status, [InvoiceStatus::Paid, InvoiceStatus::Cancelled], true);
+    }
+
     public function restore(User $user, Invoice $invoice): bool
     {
-        return $this->owns($user, $invoice) && $user->canWrite();
+        return $this->canWriteIn($user, $invoice->business_entity_id);
     }
 
     public function forceDelete(User $user, Invoice $invoice): bool

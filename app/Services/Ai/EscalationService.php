@@ -5,12 +5,14 @@ namespace App\Services\Ai;
 use App\Enums\AiEscalationStatus;
 use App\Enums\PlanFeature;
 use App\Events\AiEscalationUpdated;
+use App\Filament\Workspace\Pages\AskSettlo;
 use App\Jobs\SimulateAccountantAnswer;
 use App\Models\AccountantAssignment;
 use App\Models\AiConversation;
 use App\Models\AiEscalation;
 use App\Models\AiMessage;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use App\Services\Billing\SubscriptionService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -41,6 +43,7 @@ class EscalationService
 
     public function __construct(
         private readonly SubscriptionService $subscriptions,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     /**
@@ -55,11 +58,12 @@ class EscalationService
             throw new InvalidArgumentException('Only an assistant answer can be escalated.');
         }
 
-        if (! $user->hasFeature(PlanFeature::AccountantAccess)) {
+        $conversation = $assistantMessage->conversation()->with('businessEntity.subscription.plan')->firstOrFail();
+        $entity = $conversation->businessEntity;
+
+        if (! ($entity?->hasFeature(PlanFeature::AccountantAccess) ?? false)) {
             throw new AuthorizationException('Human accountant access is not available on your plan.');
         }
-
-        $conversation = $assistantMessage->conversation()->firstOrFail();
 
         // The duplicate check, credit spend and insert must be one atomic unit.
         // A row lock on the answer serialises two racing requests (double-click /
@@ -68,14 +72,14 @@ class EscalationService
         // single transaction also guarantees that if the unique message_id insert
         // still loses a race, consumeHumanAnswer's increment is rolled back with
         // it, so a scarce human-answer credit is never burned without an escalation.
-        $escalation = DB::transaction(function () use ($assistantMessage, $user, $conversation): AiEscalation {
+        $escalation = DB::transaction(function () use ($assistantMessage, $user, $conversation, $entity): AiEscalation {
             AiMessage::whereKey($assistantMessage->getKey())->lockForUpdate()->firstOrFail();
 
             if ($assistantMessage->escalation()->exists()) {
                 throw new RuntimeException('This answer has already been escalated.');
             }
 
-            $subscription = $user->subscription()->firstOrFail();
+            $subscription = $entity->subscription()->lockForUpdate()->firstOrFail();
             $this->subscriptions->consumeHumanAnswer($subscription);
 
             $escalation = new AiEscalation;
@@ -95,9 +99,30 @@ class EscalationService
 
         $this->broadcast($escalation, $conversation);
 
-        SimulateAccountantAnswer::dispatch($escalation->getKey())->delay(now()->addSeconds(4));
+        $this->queueSimulatedAnswer($escalation);
 
         return $escalation;
+    }
+
+    /**
+     * Queue the canned demo reply, but only when the business has no accounting
+     * firm assigned. With a real firm the escalation belongs in that firm's
+     * queue and must wait for a human — a simulated answer would silently
+     * resolve it and attribute a machine reply to the firm.
+     */
+    private function queueSimulatedAnswer(AiEscalation $escalation): void
+    {
+        if ($escalation->accounting_firm_id !== null) {
+            return;
+        }
+
+        if (! config('settlo.escalation.simulate_answer', true)) {
+            return;
+        }
+
+        $delay = max(0, (int) config('settlo.escalation.simulated_answer_delay_seconds', 4));
+
+        SimulateAccountantAnswer::dispatch($escalation->getKey())->delay(now()->addSeconds($delay));
     }
 
     /**
@@ -120,6 +145,19 @@ class EscalationService
         ])->save();
 
         $conversation = $escalation->conversation()->firstOrFail();
+
+        // The spec requires an audit trail on human answers: who answered which
+        // client's question, for which firm, and whether the SLA was met. The
+        // simulated stand-in is recorded too, flagged as such, so a demo reply
+        // is never mistaken for a verified one.
+        $this->auditLogger->log('escalation.answered', $escalation, [
+            'business_entity_id' => $conversation->business_entity_id,
+            'accounting_firm_id' => $escalation->accounting_firm_id,
+            'accountant_id' => $accountant?->getKey(),
+            'simulated' => $accountant === null,
+            'sla_breached' => (bool) $escalation->sla_breached,
+            'answered_at' => $answeredAt->toIso8601String(),
+        ], $accountant);
 
         $this->broadcast($escalation, $conversation);
         $this->notifyOwner($escalation, $conversation);
@@ -164,9 +202,10 @@ class EscalationService
 
     private function notifyOwner(AiEscalation $escalation, AiConversation $conversation): void
     {
-        $owner = $conversation->businessEntity()->first()?->owner()->first();
+        $entity = $conversation->businessEntity()->first();
+        $owner = $entity?->owner()->first();
 
-        if ($owner === null) {
+        if ($entity === null || $owner === null) {
             return;
         }
 
@@ -180,7 +219,7 @@ class EscalationService
             ->actions([
                 Action::make('view')
                     ->label('Open Ask Settlo')
-                    ->url(url('/app/'.$conversation->business_entity_id)),
+                    ->url(AskSettlo::getUrl(tenant: $entity, panel: 'workspace')),
             ])
             ->sendToDatabase($owner);
     }

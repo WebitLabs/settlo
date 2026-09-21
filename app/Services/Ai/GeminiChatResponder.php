@@ -17,8 +17,15 @@ use Throwable;
  */
 class GeminiChatResponder implements ChatResponder
 {
-    /** Ceiling on generated tokens per reply. */
-    private const int MAX_OUTPUT_TOKENS = 1024;
+    /** Finish reasons that mean the provider refused to produce an answer. */
+    private const array BLOCKED_FINISH_REASONS = ['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST'];
+
+    /** Appended when the reply hit the output token ceiling. */
+    private const string SHORTENED_NOTICE = "\n\n(This answer was shortened. Ask me to continue for the rest.)";
+
+    /** The chat shows replies as plain text, so the model must not use markdown. */
+    private const string PLAIN_TEXT_INSTRUCTION = "\n\nFormatting: the chat shows your answer as plain text. Do not use markdown: "
+        .'no **bold**, _italics_, # headings, tables or code blocks. For lists, start each line with "- ".';
 
     /** Gemini returns no confidence score, so we surface a stable default. */
     private const float DEFAULT_CONFIDENCE = 0.90;
@@ -43,7 +50,7 @@ class GeminiChatResponder implements ChatResponder
                 ->withHeaders(['x-goog-api-key' => $this->apiKey])
                 ->post("/models/{$this->model}:generateContent", [
                     'system_instruction' => [
-                        'parts' => [['text' => $systemPrompt]],
+                        'parts' => [['text' => $systemPrompt.self::PLAIN_TEXT_INSTRUCTION]],
                     ],
                     'contents' => array_map(
                         static fn (array $message): array => [
@@ -52,9 +59,7 @@ class GeminiChatResponder implements ChatResponder
                         ],
                         array_values($messages),
                     ),
-                    'generationConfig' => [
-                        'maxOutputTokens' => self::MAX_OUTPUT_TOKENS,
-                    ],
+                    'generationConfig' => $this->generationConfig(),
                 ]);
         } catch (Throwable $exception) {
             throw new AiException('The assistant is currently unavailable.', previous: $exception);
@@ -67,6 +72,22 @@ class GeminiChatResponder implements ChatResponder
         }
 
         return $this->parse($response->json(), $this->elapsedMs($startedAt));
+    }
+
+    /**
+     * Gemini counts "thinking" tokens against maxOutputTokens, so the ceiling must
+     * leave room for both the reasoning and the visible answer.
+     *
+     * @return array{maxOutputTokens: int, thinkingConfig?: array{thinkingLevel: string}}
+     */
+    private function generationConfig(): array
+    {
+        $thinkingLevel = config('services.gemini.chat_thinking_level');
+
+        return array_filter([
+            'maxOutputTokens' => (int) config('services.gemini.chat_max_output_tokens', 8192),
+            'thinkingConfig' => filled($thinkingLevel) ? ['thinkingLevel' => (string) $thinkingLevel] : null,
+        ]);
     }
 
     /**
@@ -83,8 +104,23 @@ class GeminiChatResponder implements ChatResponder
             ->filter(fn ($piece): bool => is_string($piece))
             ->implode('');
 
+        $finishReason = data_get($body, 'candidates.0.finishReason');
+
         if (trim($content) === '') {
+            if (in_array($finishReason, self::BLOCKED_FINISH_REASONS, true)) {
+                throw new AiException('The assistant could not answer this question.');
+            }
+
             throw new AiException('The assistant returned an empty response.');
+        }
+
+        if ($finishReason === 'MAX_TOKENS') {
+            Log::warning('Ask Settlo reply hit the output token limit.', [
+                'thoughts' => data_get($body, 'usageMetadata.thoughtsTokenCount'),
+                'visible' => data_get($body, 'usageMetadata.candidatesTokenCount'),
+            ]);
+
+            $content .= self::SHORTENED_NOTICE;
         }
 
         return new ChatReply(

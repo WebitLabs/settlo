@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\AiConversation;
 use App\Models\BusinessEntity;
 use App\Models\User;
+use App\Policies\Concerns\ChecksWorkspaceAccess;
 
 /**
  * Default-deny. Ask Settlo conversations are strictly owner-private: only the
@@ -13,6 +14,8 @@ use App\Models\User;
  */
 class AiConversationPolicy
 {
+    use ChecksWorkspaceAccess;
+
     public function viewAny(User $user): bool
     {
         return $user->isOwner();
@@ -25,27 +28,27 @@ class AiConversationPolicy
 
     public function create(User $user): bool
     {
-        return $user->isOwner() && $user->canWrite();
+        return $this->canCreateInCurrentWorkspace($user);
     }
 
     public function update(User $user, AiConversation $conversation): bool
     {
-        return $this->owns($user, $conversation) && $user->canWrite();
+        return $this->owns($user, $conversation) && $this->canWriteIn($user, $conversation->business_entity_id);
     }
 
     public function delete(User $user, AiConversation $conversation): bool
     {
-        return $this->owns($user, $conversation) && $user->canWrite();
+        return $this->owns($user, $conversation) && $this->canWriteIn($user, $conversation->business_entity_id);
     }
 
     public function restore(User $user, AiConversation $conversation): bool
     {
-        return $this->owns($user, $conversation) && $user->canWrite();
+        return $this->owns($user, $conversation) && $this->canWriteIn($user, $conversation->business_entity_id);
     }
 
     public function forceDelete(User $user, AiConversation $conversation): bool
     {
-        return $this->owns($user, $conversation) && $user->canWrite();
+        return $this->owns($user, $conversation) && $this->canWriteIn($user, $conversation->business_entity_id);
     }
 
     private function owns(User $user, AiConversation $conversation): bool

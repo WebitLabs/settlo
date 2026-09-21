@@ -6,6 +6,7 @@ use App\Models\AccountantAssignment;
 use App\Models\AiEscalation;
 use App\Models\BusinessEntity;
 use App\Models\User;
+use App\Policies\Concerns\ChecksWorkspaceAccess;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -16,14 +17,49 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class AiEscalationPolicy
 {
+    use ChecksWorkspaceAccess;
+
+    public function viewAny(User $user): bool
+    {
+        return $user->isOwner() || $user->isAccountant();
+    }
+
+    /**
+     * The owner of the business that raised it, or an accountant who is allowed
+     * to answer it. The firm queue asks an accountant to verify the AI answer,
+     * and the detail page is the only place that answer is shown — denying the
+     * read while allowing the write would ask them to verify something they
+     * cannot see.
+     */
     public function view(User $user, AiEscalation $escalation): bool
     {
-        return $this->ownsEntity($user, $escalation);
+        return $this->ownsEntity($user, $escalation)
+            || $this->answer($user, $escalation);
+    }
+
+    public function create(User $user): bool
+    {
+        return false;
+    }
+
+    public function update(User $user, AiEscalation $escalation): bool
+    {
+        return false;
+    }
+
+    public function delete(User $user, AiEscalation $escalation): bool
+    {
+        return false;
+    }
+
+    public function deleteAny(User $user): bool
+    {
+        return false;
     }
 
     public function resolve(User $user, AiEscalation $escalation): bool
     {
-        return $this->ownsEntity($user, $escalation) && $user->canWrite();
+        return $this->canWriteIn($user, $this->entityId($escalation));
     }
 
     public function answer(User $user, AiEscalation $escalation): bool

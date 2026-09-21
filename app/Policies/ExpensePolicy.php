@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\BusinessEntity;
 use App\Models\Expense;
 use App\Models\User;
+use App\Policies\Concerns\ChecksWorkspaceAccess;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class ExpensePolicy
 {
+    use ChecksWorkspaceAccess;
+
     public function viewAny(User $user): bool
     {
         return $user->isOwner() || $user->isAccountant();
@@ -28,27 +31,27 @@ class ExpensePolicy
 
     public function create(User $user): bool
     {
-        return $user->isOwner() && $user->canWrite();
+        return $this->canCreateInCurrentWorkspace($user);
     }
 
     public function update(User $user, Expense $expense): bool
     {
-        return $this->owns($user, $expense) && $user->canWrite();
+        return $this->canWriteIn($user, $expense->business_entity_id);
     }
 
     public function delete(User $user, Expense $expense): bool
     {
-        return $this->owns($user, $expense) && $user->canWrite();
+        return $this->canWriteIn($user, $expense->business_entity_id);
     }
 
     public function restore(User $user, Expense $expense): bool
     {
-        return $this->owns($user, $expense) && $user->canWrite();
+        return $this->canWriteIn($user, $expense->business_entity_id);
     }
 
     public function forceDelete(User $user, Expense $expense): bool
     {
-        return $this->owns($user, $expense) && $user->canWrite();
+        return $this->canWriteIn($user, $expense->business_entity_id);
     }
 
     private function owns(User $user, Expense $expense): bool

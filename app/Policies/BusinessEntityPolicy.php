@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\UserRole;
+use App\Http\Middleware\EnsurePhoneIsVerified;
 use App\Models\BusinessEntity;
 use App\Models\User;
 
@@ -36,9 +37,15 @@ class BusinessEntityPolicy
         return false;
     }
 
+    /**
+     * Only owners with a verified email address may set up a business, and,
+     * while SMS phone verification is on, only once their phone is confirmed.
+     */
     public function create(User $user): bool
     {
-        return $user->role === UserRole::Owner;
+        return $user->role === UserRole::Owner
+            && $user->hasVerifiedEmail()
+            && ! EnsurePhoneIsVerified::mustVerify($user);
     }
 
     public function update(User $user, BusinessEntity $businessEntity): bool

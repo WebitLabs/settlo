@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\User;
+use App\Policies\Concerns\ChecksWorkspaceAccess;
 
 /**
  * Default-deny. A message is reachable only through a conversation the user
@@ -13,6 +14,8 @@ use App\Models\User;
  */
 class AiMessagePolicy
 {
+    use ChecksWorkspaceAccess;
+
     public function viewAny(User $user): bool
     {
         return $user->isOwner();
@@ -25,17 +28,22 @@ class AiMessagePolicy
 
     public function create(User $user): bool
     {
-        return $user->isOwner() && $user->canWrite();
+        return $this->canCreateInCurrentWorkspace($user);
     }
 
     public function update(User $user, AiMessage $message): bool
     {
-        return $this->owns($user, $message) && $user->canWrite();
+        return $this->owns($user, $message) && $this->canWriteIn($user, $this->entityId($message));
     }
 
     public function delete(User $user, AiMessage $message): bool
     {
-        return $this->owns($user, $message) && $user->canWrite();
+        return $this->owns($user, $message) && $this->canWriteIn($user, $this->entityId($message));
+    }
+
+    private function entityId(AiMessage $message): ?string
+    {
+        return AiConversation::whereKey($message->conversation_id)->value('business_entity_id');
     }
 
     private function owns(User $user, AiMessage $message): bool

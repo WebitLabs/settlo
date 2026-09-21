@@ -8,8 +8,10 @@ use App\Models\AccountingFirm;
 use App\Models\BusinessEntity;
 use App\Models\FirmClientInvitation;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -25,6 +27,8 @@ class FirmInvitationService
     private const EXPIRY_DAYS = 14;
 
     private const TOKEN_BYTES = 48;
+
+    public function __construct(private readonly AuditLogger $auditLogger) {}
 
     /**
      * Create and email a fresh invitation for a client email address.
@@ -44,6 +48,11 @@ class FirmInvitationService
             'accepted_by_id' => null,
         ])->save();
 
+        $this->auditLogger->log('firm.client_invited', $invitation, [
+            'accounting_firm_id' => $firm->getKey(),
+            'email' => $invitation->email,
+        ], $invitedBy);
+
         $this->dispatchMail($invitation, $token, $message);
 
         return $invitation;
@@ -62,9 +71,28 @@ class FirmInvitationService
             'expires_at' => Carbon::now()->addDays(self::EXPIRY_DAYS),
         ])->save();
 
+        $this->auditLogger->log('firm.client_invitation_resent', $invitation, [
+            'accounting_firm_id' => $invitation->accounting_firm_id,
+            'email' => $invitation->email,
+        ]);
+
         $this->dispatchMail($invitation, $token, $message);
 
         return $invitation;
+    }
+
+    /**
+     * Revoke a pending invitation: the stored hash is the only copy of the
+     * token, so deleting the row invalidates the emailed link immediately.
+     */
+    public function revoke(FirmClientInvitation $invitation): void
+    {
+        $this->auditLogger->log('firm.client_invitation_revoked', $invitation, [
+            'accounting_firm_id' => $invitation->accounting_firm_id,
+            'email' => $invitation->email,
+        ]);
+
+        $invitation->delete();
     }
 
     /**
@@ -96,27 +124,51 @@ class FirmInvitationService
      */
     public function accept(FirmClientInvitation $invitation, BusinessEntity $entity, User $owner): AccountantAssignment
     {
-        $assignment = AccountantAssignment::query()
-            ->where('accounting_firm_id', $invitation->accounting_firm_id)
-            ->where('business_entity_id', $entity->getKey())
-            ->whereNull('revoked_at')
-            ->first();
+        // (firm, business) is unique, so a previously revoked assignment still
+        // occupies the slot: re-inviting a client the firm had let go used to
+        // hit a duplicate-key error. Reinstating the existing row inside a
+        // transaction (row-locked so two accepts cannot both insert) both fixes
+        // that and keeps the accept path idempotent.
+        $assignment = DB::transaction(function () use ($invitation, $entity): AccountantAssignment {
+            $assignment = AccountantAssignment::query()
+                ->where('accounting_firm_id', $invitation->accounting_firm_id)
+                ->where('business_entity_id', $entity->getKey())
+                ->lockForUpdate()
+                ->first();
 
-        if ($assignment === null) {
-            $assignment = new AccountantAssignment;
-            $assignment->forceFill([
-                'accounting_firm_id' => $invitation->accounting_firm_id,
-                'business_entity_id' => $entity->getKey(),
-                'accountant_id' => null,
-                'assigned_at' => Carbon::now(),
-                'revoked_at' => null,
-            ])->save();
-        }
+            if ($assignment === null) {
+                $assignment = new AccountantAssignment;
+                $assignment->forceFill([
+                    'accounting_firm_id' => $invitation->accounting_firm_id,
+                    'business_entity_id' => $entity->getKey(),
+                    'accountant_id' => null,
+                    'assigned_at' => Carbon::now(),
+                    'revoked_at' => null,
+                ])->save();
+
+                return $assignment;
+            }
+
+            if (! $assignment->isActive()) {
+                $assignment->forceFill([
+                    'assigned_at' => Carbon::now(),
+                    'revoked_at' => null,
+                ])->save();
+            }
+
+            return $assignment;
+        });
 
         $invitation->forceFill([
             'accepted_at' => Carbon::now(),
             'accepted_by_id' => $owner->getKey(),
         ])->save();
+
+        $this->auditLogger->log('firm.client_invitation_accepted', $invitation, [
+            'accounting_firm_id' => $invitation->accounting_firm_id,
+            'business_entity_id' => $entity->getKey(),
+            'assignment_id' => $assignment->getKey(),
+        ], $owner);
 
         $this->notifyFirm($invitation, $entity);
 

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\AskSettlo;
 use App\Billing\QuotaExceededException;
 use App\Enums\AiEscalationStatus;
 use App\Enums\PlanFeature;
-use App\Filament\App\Pages\AskSettlo as AskSettloPage;
+use App\Enums\UserStatus;
+use App\Filament\Personal\Pages\Billing;
+use App\Filament\Workspace\Pages\AskSettlo as AskSettloPage;
 use App\Http\Controllers\Controller;
 use App\Models\AiConversation;
 use App\Models\AiEscalation;
@@ -55,14 +57,18 @@ class AskSettloController extends Controller
     ];
 
     /**
-     * The chat now lives inside the app panel; the old standalone URL keeps
-     * working as a redirect so bookmarks and older links stay valid.
+     * The chat now lives inside the workspace panel; the old standalone URL keeps
+     * working as a redirect so bookmarks and older links stay valid. A `?q=`
+     * deep link is carried over so the island can auto-ask the question.
      */
     public function index(Request $request, BusinessEntity $businessEntity): RedirectResponse
     {
         $this->authorizeEntityAccess($request, $businessEntity);
 
-        return redirect()->to(AskSettloPage::getUrl(['tenant' => $businessEntity], panel: 'app'));
+        return redirect()->to(AskSettloPage::getUrl([
+            'tenant' => $businessEntity,
+            ...$request->only('q'),
+        ], panel: 'workspace'));
     }
 
     /**
@@ -80,7 +86,7 @@ class AskSettloController extends Controller
             'conversations' => $conversations->map(fn (AiConversation $c): array => $this->presentConversationSummary($c))->values(),
             'activeConversation' => $active !== null ? $this->presentConversation($active) : null,
             'context' => $this->presentContext($assembler, $user, $businessEntity),
-            'quota' => $this->presentQuota($user),
+            'quota' => $this->presentQuota($businessEntity),
             'accountant' => $this->accountantCard(),
             'suggestedQuestions' => self::SUGGESTED_QUESTIONS,
         ]);
@@ -112,7 +118,7 @@ class AskSettloController extends Controller
         $content = $this->validatedContent($request);
         $assistant = $service->sendMessage($conversation, $content);
 
-        return response()->json($this->presentMessage($assistant->fresh()));
+        return response()->json($this->presentMessage($assistant->fresh(['escalation.accountant'])));
     }
 
     public function stream(Request $request, BusinessEntity $businessEntity, AiConversation $conversation, AskSettloService $service): StreamedResponse
@@ -122,7 +128,7 @@ class AskSettloController extends Controller
 
         $content = $this->validatedContent($request);
         ['reply' => $reply, 'snapshot' => $snapshot] = $service->prepareReply($conversation, $content);
-        $canEscalate = $user->hasFeature(PlanFeature::AccountantAccess);
+        $canEscalate = $businessEntity->hasFeature(PlanFeature::AccountantAccess);
 
         return response()->stream(function () use ($service, $conversation, $content, $reply, $snapshot, $canEscalate): void {
             foreach ($reply->chunks() as $chunk) {
@@ -159,20 +165,52 @@ class AskSettloController extends Controller
             ], 429);
         } catch (AuthorizationException $e) {
             return response()->json(['message' => $e->getMessage()], 403);
-        } catch (QueryException|RuntimeException) {
+        } catch (InvalidArgumentException $e) {
+            // The client pointed at something that cannot be escalated (a user
+            // turn rather than an assistant answer). That is bad input, not a
+            // server fault.
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (RuntimeException) {
             // A concurrent double-submit lost the race for this answer's single
             // escalation. The credit spend was rolled back with the failed insert;
             // report the already-existing escalation rather than 500-ing.
             return response()->json([
                 'message' => 'This answer has already been escalated.',
-                'quota' => $this->presentQuota($user->fresh()),
+                'quota' => $this->presentQuota($businessEntity->fresh()),
+            ], 409);
+        } catch (QueryException $e) {
+            // Only a unique-constraint violation means "someone got here first".
+            // Anything else is a real database failure and must be reported as
+            // one — swallowing it as "already escalated" hid outages behind a
+            // confusing message and left the owner's credit unaccounted for.
+            if (! $this->isUniqueViolation($e)) {
+                report($e);
+
+                return response()->json([
+                    'message' => 'We could not reach your accountant right now. Please try again.',
+                ], 503);
+            }
+
+            return response()->json([
+                'message' => 'This answer has already been escalated.',
+                'quota' => $this->presentQuota($businessEntity->fresh()),
             ], 409);
         }
 
         return response()->json([
-            'escalation' => $this->presentEscalation($escalation),
-            'quota' => $this->presentQuota($user->fresh()),
+            'escalation' => $this->presentEscalation($escalation->loadMissing('accountant')),
+            'quota' => $this->presentQuota($businessEntity->fresh()),
         ], 201);
+    }
+
+    /**
+     * Whether a query failure is an integrity/unique-constraint violation (the
+     * lost-race case) rather than a genuine database fault. SQLSTATE 23xxx is
+     * the integrity-constraint class across SQLite, MySQL and PostgreSQL.
+     */
+    private function isUniqueViolation(QueryException $exception): bool
+    {
+        return str_starts_with((string) $exception->getCode(), '23');
     }
 
     public function resolve(Request $request, BusinessEntity $businessEntity, AiEscalation $escalation, EscalationService $escalations): JsonResponse
@@ -193,7 +231,7 @@ class AskSettloController extends Controller
             ], 409);
         }
 
-        return response()->json($this->presentEscalation($escalation));
+        return response()->json($this->presentEscalation($escalation->loadMissing('accountant')));
     }
 
     /**
@@ -207,22 +245,24 @@ class AskSettloController extends Controller
         return AiConversation::query()
             ->where('user_id', $user->getKey())
             ->where('business_entity_id', $entity->getKey())
-            ->with(['messages.escalation', 'escalations'])
+            ->with(['messages.escalation.accountant', 'escalations'])
             ->orderByDesc('updated_at')
             ->get();
     }
 
     /**
-     * Confirm the request comes from the owner of this business entity and that
-     * their subscription still grants access, then return the user.
+     * Confirm the request comes from the (not suspended) owner of this business
+     * entity and that the workspace's subscription still grants access, then
+     * return the user.
      */
     private function authorizeEntityAccess(Request $request, BusinessEntity $entity): User
     {
         /** @var User $user */
         $user = $request->user();
 
+        abort_if($user->status === UserStatus::Suspended, 403);
         abort_unless($user->isOwner() && $entity->owner_id === $user->getKey(), 403);
-        abort_unless($user->subscription?->grantsAccess() ?? false, 403);
+        abort_unless($entity->subscription?->grantsAccess() ?? false, 403);
 
         return $user;
     }
@@ -252,7 +292,7 @@ class AskSettloController extends Controller
      */
     private function presentConversation(AiConversation $conversation): array
     {
-        $conversation->loadMissing(['messages.escalation']);
+        $conversation->loadMissing(['messages.escalation.accountant']);
 
         return [
             'id' => $conversation->getKey(),
@@ -309,7 +349,7 @@ class AskSettloController extends Controller
             'question' => $escalation->user_question,
             'answer' => $escalation->accountant_answer,
             'notes' => $escalation->accountant_notes,
-            'accountantName' => $escalation->accountant()->value('name') ?? 'Maria Schneider',
+            'accountantName' => $escalation->accountant?->getFilamentName() ?? 'Maria Schneider',
             'answeredAt' => $escalation->answered_at?->toIso8601String(),
         ];
     }
@@ -324,16 +364,16 @@ class AskSettloController extends Controller
         return [
             'cantonCode' => $snapshot['canton_code'] ?? 'CH',
             'revenueYtd' => number_format((float) ($snapshot['revenue_ytd'] ?? 0), 0, '.', "'"),
-            'vatStatus' => $snapshot['vat_status_label'] ?? 'Not registered',
+            'vatStatus' => $snapshot['vat_status_short'] ?? 'Not registered',
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function presentQuota(User $user): array
+    private function presentQuota(BusinessEntity $entity): array
     {
-        $subscription = $user->subscription;
+        $subscription = $entity->subscription;
 
         $used = (int) ($subscription?->human_answers_used ?? 0);
         $total = (int) ($subscription?->human_answers_quota ?? 0);
@@ -343,7 +383,8 @@ class AskSettloController extends Controller
             'total' => $total,
             'remaining' => max(0, $total - $used),
             'planName' => $subscription?->plan?->name ?? 'Solo',
-            'canEscalate' => $user->hasFeature(PlanFeature::AccountantAccess),
+            'canEscalate' => $entity->hasFeature(PlanFeature::AccountantAccess),
+            'billingUrl' => Billing::getUrl(['workspace' => $entity->getKey()], panel: 'app'),
         ];
     }
 

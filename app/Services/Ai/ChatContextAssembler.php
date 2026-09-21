@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Enums\VatStatus;
 use App\Models\BusinessEntity;
-use App\Models\TaxProfile;
 use App\Models\User;
 
 /**
@@ -16,14 +16,15 @@ class ChatContextAssembler
     public function assemble(User $user, BusinessEntity $entity): ChatContext
     {
         $fiscalYear = (int) config('settlo.current_fiscal_year', (int) date('Y'));
-        $profile = $entity->taxProfile;
+        $entity->loadMissing(['owner.taxProfile.canton', 'canton']);
+        $profile = $entity->ownerTaxProfile();
 
         $firstName = trim((string) $user->first_name);
         $lastName = trim((string) $user->last_name);
         $entityName = trim((string) $entity->name);
         $cantonCode = $profile?->canton?->code ?? $entity->canton?->code ?? 'CH';
         $revenueYtd = $this->revenueYtd($entity, $fiscalYear);
-        $vatStatusLabel = $this->vatStatusLabel($entity, $profile, $fiscalYear);
+        $vatStatusLabel = $this->vatStatusLabel($entity, $fiscalYear);
         $maritalStatusLabel = $profile?->marital_status?->getLabel() ?? 'Single';
         $numberOfChildren = (int) ($profile?->number_of_children ?? 0);
         $pillar3a = (float) ($profile?->pillar3a_amount ?? 0);
@@ -49,8 +50,9 @@ class ChatContextAssembler
                 'entity_name' => $entityName,
                 'canton_code' => $cantonCode,
                 'revenue_ytd' => $revenueYtd,
-                'vat_status' => $profile?->vat_status?->value,
+                'vat_status' => $entity->vat_status?->value,
                 'vat_status_label' => $vatStatusLabel,
+                'vat_status_short' => $this->vatStatusShortLabel($entity),
                 'marital_status' => $profile?->marital_status?->value,
                 'number_of_children' => $numberOfChildren,
                 'pillar3a_amount' => $pillar3a,
@@ -79,6 +81,7 @@ class ChatContextAssembler
             ."{$numberOfChildren} children, Pillar 3a CHF {$pillar}/year. "
             .'Answer questions about Swiss taxes, AHV/IV/EO, VAT, and business. Be specific and concise, '
             .'give confident answers, and reference Swiss law when relevant. '
+            .'Keep answers under about 350 words; prefer short paragraphs and bullet lists. '
             .'Only suggest verifying with a certified Swiss accountant when you are genuinely uncertain — never as a default disclaimer. '
             .'Never mention the underlying AI model or provider — you are Settlo AI.';
     }
@@ -88,13 +91,13 @@ class ChatContextAssembler
         return (float) $entity->invoices()
             ->countsAsRevenue()
             ->whereYear('issue_date', $fiscalYear)
-            ->sum('total');
+            ->sum('subtotal');
     }
 
-    private function vatStatusLabel(BusinessEntity $entity, ?TaxProfile $profile, int $fiscalYear): string
+    private function vatStatusLabel(BusinessEntity $entity, int $fiscalYear): string
     {
-        if ($profile?->vat_status !== null) {
-            return $profile->vat_status->getLabel();
+        if ($entity->vat_status !== null && $entity->vat_status !== VatStatus::NotRegistered) {
+            return $entity->vat_status->getLabel();
         }
 
         if (filled($entity->mwst_number)) {
@@ -108,6 +111,18 @@ class ChatContextAssembler
         }
 
         return 'Not registered';
+    }
+
+    /**
+     * A compact VAT status for the chat header pill ("Not registered", "Registered", "Exempt").
+     */
+    private function vatStatusShortLabel(BusinessEntity $entity): string
+    {
+        if ($entity->vat_status !== null && $entity->vat_status !== VatStatus::NotRegistered) {
+            return $entity->vat_status->getShortLabel();
+        }
+
+        return filled($entity->mwst_number) ? 'Registered' : 'Not registered';
     }
 
     private function swissAmount(float $value): string

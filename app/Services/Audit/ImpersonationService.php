@@ -2,6 +2,7 @@
 
 namespace App\Services\Audit;
 
+use App\Enums\UserStatus;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
@@ -41,6 +42,13 @@ class ImpersonationService
             throw new AuthorizationException('A superadmin cannot be impersonated.');
         }
 
+        // Nested impersonation would overwrite the remembered admin id with the
+        // impersonated user's, so stopping could never restore the real admin —
+        // and the session would be stranded as that second user.
+        if ($this->isImpersonating()) {
+            throw new AuthorizationException('Stop the current impersonation before starting another.');
+        }
+
         session()->put(self::SESSION_KEY, $admin->getKey());
 
         $this->auditLogger->log('impersonation.started', $target, [
@@ -55,6 +63,12 @@ class ImpersonationService
     /**
      * Stop impersonating and restore the original superadmin. No-op when no
      * impersonation is in progress.
+     *
+     * The remembered admin is re-verified before the identity is handed back:
+     * the account may have been demoted, suspended or deleted while the session
+     * was impersonating, and restoring it blindly would hand out a superadmin
+     * session that could no longer be granted. When it cannot be restored the
+     * session is simply logged out.
      */
     public function stop(): void
     {
@@ -66,17 +80,40 @@ class ImpersonationService
 
         $target = Auth::user();
         $admin = User::find($adminId);
+        $restorable = $admin instanceof User && $this->mayBeRestored($admin);
 
-        $this->auditLogger->log('impersonation.stopped', $target instanceof User ? $target : null, [
-            'restored_admin_id' => (int) $adminId,
-        ]);
-
-        if ($admin instanceof User) {
-            Auth::login($admin);
-            $this->refreshSessionPasswordHash($admin);
-        }
+        // Logged before the marker is cleared so the row still carries the
+        // impersonator, and attributed to the *admin* rather than the
+        // impersonated user — they are the one performing this action.
+        $this->auditLogger->log(
+            $restorable ? 'impersonation.stopped' : 'impersonation.stop_denied',
+            $target instanceof User ? $target : null,
+            [
+                'restored_admin_id' => (int) $adminId,
+                'target_email' => $target instanceof User ? $target->email : null,
+            ],
+            $admin instanceof User ? $admin : null,
+        );
 
         session()->forget(self::SESSION_KEY);
+
+        if (! $restorable) {
+            Auth::logout();
+
+            return;
+        }
+
+        Auth::login($admin);
+        $this->refreshSessionPasswordHash($admin);
+    }
+
+    /**
+     * The remembered account may only get its session back while it is still a
+     * superadmin and still active.
+     */
+    private function mayBeRestored(User $admin): bool
+    {
+        return $admin->isSuperadmin() && $admin->status === UserStatus::Active;
     }
 
     public function isImpersonating(): bool

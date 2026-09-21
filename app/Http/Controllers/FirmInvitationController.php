@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Filament\Workspace\Pages\Dashboard;
 use App\Models\BusinessEntity;
 use App\Models\FirmClientInvitation;
 use App\Services\Firm\FirmInvitationService;
@@ -65,7 +66,7 @@ class FirmInvitationController extends Controller
 
         $this->invitations->accept($invitation, $entity, $owner);
 
-        return redirect('/app/'.$entity->getKey())
+        return redirect(Dashboard::getUrl(tenant: $entity, panel: 'workspace'))
             ->with('status', "{$invitation->accountingFirm?->name} now has access to {$entity->name}.");
     }
 
