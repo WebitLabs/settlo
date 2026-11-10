@@ -6,6 +6,7 @@ use App\Http\Controllers\DummyCheckoutController;
 use App\Http\Controllers\ExpenseReceiptController;
 use App\Http\Controllers\FirmInvitationController;
 use App\Http\Controllers\ImpersonationController;
+use App\Http\Controllers\TestMailController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -35,6 +36,14 @@ Route::middleware('throttle:30,1')
     ->get('/cron/{command}', CronCommandController::class)
     ->whereIn('command', array_keys(CronCommandController::COMMANDS))
     ->name('cron.run');
+
+/*
+ * Temporary: sends one test email to check the mail provider on a deployed
+ * environment. Remove once delivery is confirmed.
+ */
+Route::middleware('throttle:5,1')
+    ->get('/test-mail', TestMailController::class)
+    ->name('test-mail');
 
 /*
  * Local checkout of the dummy payment gateway (the controller 404s when Stripe
