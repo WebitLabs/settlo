@@ -15,17 +15,17 @@ Log in at the panel URL for the role. All three accounts are demo fixtures with 
 **Business owner — Anna Müller**
 - Sign in: https://settlo-one.vercel.app/app
 - Email: `anna@test.ch`
-- Password: `44Dl8W5Gjo4cAfLZBFqW`
+- Password: `1MiyYn79uFhgf3hsVg6V`
 
 **Accountant — Maria Schneider, Müller Treuhand AG**
 - Sign in: https://settlo-one.vercel.app/firm
 - Email: `maria@test.ch`
-- Password: `yhbl2iPTCIujn39A0rkG`
+- Password: `e4BlsdtFPmLw3ManBAr4`
 
 **Platform admin**
 - Sign in: https://settlo-one.vercel.app/admin
 - Email: `admin@settlo.ch`
-- Password: `gBuFt2eJ4rkA8S1r6dSw`
+- Password: `OJGlRgabnuPnYHIM8m1k`
 
 The passwords are letters and digits only, so they survive copying out of this document.
 
