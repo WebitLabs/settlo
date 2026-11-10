@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\CronCommandController;
 use App\Jobs\RecalculateTaxEstimation;
 use App\Models\Canton;
 use App\Models\Commune;
 use App\Models\Plan;
 use App\Models\PostalCode;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -53,4 +55,10 @@ it('drains queued jobs on a real connection', function () {
     $this->artisan('settlo:drain-queue', ['--max-time' => 5])->assertSuccessful();
 
     expect(DB::table('jobs')->count())->toBe(0);
+});
+
+it('exposes the fresh reset as a registered, whitelisted command', function () {
+    // migrate:fresh cannot run inside the test transaction, so only the wiring is checked.
+    expect(Artisan::all())->toHaveKey('settlo:fresh')
+        ->and(CronCommandController::COMMANDS['fresh'])->toBe('settlo:fresh');
 });

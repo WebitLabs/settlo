@@ -30,6 +30,8 @@ class CronCommandController
         // demo records themselves, and prints the generated passwords once —
         // they are in the response body, so call it over HTTPS only.
         'seed-demo' => 'settlo:seed-demo --force',
+        // Temporary: wipes the database for a clean demo reset.
+        'fresh' => 'settlo:fresh',
     ];
 
     public function __invoke(Request $request, string $command): JsonResponse
